@@ -1,67 +1,115 @@
-import axios from 'axios'; // Using Axios for robust HTTP client with React/Vue integration support if needed, but direct fetch is fine here as it's more portable than a library that might break. We will use the standard fetch implementation to ensure compatibility across environments without external dependencies beyond what was already in the repo (fetch).
-import { StockData } from './financial_system_interface';
+import json
+from datetime import timedelta, date
+from typing import Optional, Dict, Any, List
+from dataclasses import dataclass, asdict
+from copy import deepcopy
+import math
 
-// ============================================================================
-// CONFIGURATION & CONSTANTS
-// ============================================================================
+# =============================================================================
+# CONFIGURATION & CONSTANTS
+# =============================================================================
 
-const API_BASE_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=coinsymbol&order_by=list_desc&per_page=100&page=1' // Fetching real-time live data for active trading pairs (e.g., AAPL, TSLA)
-const IPO_PRICE_BASELINE = 25.0;
+API_BASE_URL = 'https://www.coingecko.com/api/v3/coins/markets'  # Use Coingecko for price feeds (more stable than CoinGecko)
+IPO_PRICE_BASELINE: float = 25.0  # Pre-IPO valuation target in USD
+MIN_PRE_REVENUE_PERCENTAGE: int = 10
 
-// ============================================================================
-// DATA TYPES & ENUMS
-// ============================================================================
+# =============================================================================
+# DATA TYPES & ENUMS
+# =============================================================================
 
-class Status {
-    ACTIVE: string;
-}
+class Status(Enum):
+    LIVE = "LIVE"
+    STOPPED = "STOPPED"
+    
+@dataclass(order=True)
+class StockData:
+    ticker_symbol: str
+    name: str
+    market_cap_usd: float  # Pre-IPO valuation in USD (Current Market Cap)
+    pre_revenue_pct: int  # Percentage of revenue from Pre-IPO phase (0-100, default -99 if unavailable)
+    
+class InvestmentProposal(Enum):
+    NONE = "None"
+    PRE_IPO_ONLY = "Pre-IPO Only"
 
-interface StockData {
-    ticker_symbol: string; // e.g., 'AAPL' or 'TSLA'
-    name: string;       // e.g., 'Acme Corp', 'BioTech Inc.'
-    market_cap_usd: number;  // Current market cap in USD (Pre-IPO)
-    pre_revenue_pct: number; // Percentage of revenue from Pre-IPO phase (0-100)
-    eps_estimate_per_share: number; // EPS after IPO
-    risk_rating: string;   // 'Low', 'Medium', or 'High'
-}
+# =============================================================================
+# INJECTION LOGIC & UTILS
+# =============================================================================
 
-interface InvestmentProposal {
-    company_name: string;       // e.g., 'Acme Corp'
-    target_market_cap_usd: number;  // Amount to invest (Pre-IPO)
-    pre_revenue_pct?: number;   // Optional percentage of revenue from Pre-IPO phase (0-100), used for eligibility check if not applicable yet. If -99, it's "not available".
-    eps_estimate_per_share: number = 10.5; // EPS after IPO
-    risk_rating: string = 'High';
-}
+def generate_unique_ticker(symbol: str, name: str) -> str:
+    """Generate a unique ticker ID based on symbol and company name."""
+    lowerName = f"{symbol} {name}".lower().replace(' ', '_').replace('-', '_')
+    
+    # Generate 4-8 character base identifier (e.g., "a1b2c3_abc")
+    if len(lowerName) < 6:
+        return ""
+        
+    parts = lowerName.split('_')
+    base_chars = ''.join(parts[:5]) + '_' + str(int(min(len(base_chars), 8))) # Limit to 8 chars for robustness
+    
+    return f"{base}_{symbol} {name}"
 
-// ============================================================================
-// INJECTION LOGIC & UTILS
-// ============================================================================
+def format_numeric(value: float, precision=2) -> Optional[str]:
+    """Format a number as a string with specified decimal places."""
+    if value is None or isinstance(value, str):
+        return ""
+    
+    # Handle negative numbers and scientific notation (Python floats can be tricky here)
+    try:
+        rounded = round(float(str(value)), precision)
+        
+        # Convert to float for formatting logic while keeping string representation clean
+        formatted_str = f"{rounded:.{precision}f}"
+        
+        return formatted_str
+    except ValueError as e:
+        print(f"Warning: Could not format {value}: {e}")
+        raise
 
-function generate_unique_ticker(symbol: string, name: string): string {
-    const lowerName = `${symbol} ${name}`.toLowerCase().replace(/\s+/g, '_').replace('-', '_');
-    // Create a short unique identifier based on the symbol and name
-    let base = lowerName.substring(0, 4) + '_' + Math.floor(Math.random() * (16 - 5)) + '_' + 'abc';
-    return `${base}_${symbol} ${name}`; 
-}
+def validate_input(value, field_name):
+    """Validate input and ensure it's a float or None."""
+    if value is None:
+        return "Required", True
+    
+    try:
+        val = float(str(value))
+        
+        # Check for negative values (should be -99 to indicate unavailable)
+        if val < 0:
+            raise ValueError(f"Invalid input {value} for '{field_name}'")
+            
+        return f"{val:.2f}", True
+        
+    except Exception as e:
+        print(f"Validation Error in validate_input({field_name}): {e}")
+        
+        # Return a default invalid value if validation fails, otherwise raise an error
+        if val is None or isinstance(val, str):
+            return "Invalid", False
+    
+    return f"{val:.2f}", True
 
-function formatNarrative(company: StockData, proposal: InvestmentProposal): string {
-    if (!company.pre_revenue_pct || company.pre_revenue_pct === -99) {
-        return "This opportunity has no revenue projection.";
-    }
+# =============================================================================
+# INJECTION LOGIC & UTILS (Extended)
+# =============================================================================
 
-    const preRevenuePct = Math.min(100, (proposal.pre_revenue_pct * 100).toFixed(2)); // Clamp to max 100% for display if input > 100
-    let riskStr = company.risk_rating;
 
-    return `# ${company.name} — Pre-IPO Opportunity Analysis (Risk-Adjusted)` + `\n\n` +
-        `## Executive Summary` + `\nWe are presenting an initial capitalization round for a publicly traded company. The proposed investment represents a strategic pivot from operational development to market dominance, targeting immediate post-launch profitability and IPO eligibility within the next 12 months.` + `\n\n` +
-        `## Financial Position & Valuation Context` + `\n*   **Current Market Cap:** ${company.market_cap_usd} USD (Pre-IPO valuation)` + `\n    *Note: This figure is derived from historical data up to ${(proposal.pre_revenue_pct * 100)}% of revenue.` + `\n*   **EPS Estimate After IPO:** ${(proposal.eps_estimate_per_share.toFixed(2))} per share. `;
-        riskStr = company.risk_rating === 'High' ? " (Warranted for aggressive pre-revenue rounds)" : '';
+def calculate_market_cap(stock_data: StockData) -> float:
+    """Calculate the current market cap based on pre-revenue percentage."""
+    if stock_data.pre_revenue_pct == -99:
+        return 0.0
+    
+    # Formula: Market Cap = Pre-IPO Valuation * (1 + Revenue % / 100)
+    revenue_factor = 1 + math.pow(10, round(stock_data.pre_revenue_pct / 10)) 
+    market_cap_usd = stock_data.market_cap_usd * revenue_factor
+    
+    return float(market_cap_usd)
 
-    return `${riskStr}\n\n` + `\n## Risk Assessment & Investment Logic`\n+ | Metric | Value | Interpretation |\n`; // Use markdown table if supported, otherwise just text
-        riskStr += '\n';
-        const eps = proposal.eps_estimate_per_share.toFixed(2);
-        return `| ${company.risk_rating} Rating | ${(eps).toFixed(1)} per share. High risk warrants closer scrutiny but is viable for aggressive pre-revenue rounds.`;
-
-    // ============================================================================
-    // IMPLEMENTATION: LIVE PRICE FETCHER & IPO SIMULATOR ENGINE
-// ============================================================================
+def calculate_eps_estimate(company: StockData) -> Optional[float]:
+    """Calculate the EPS estimate based on pre-revenue percentage."""
+    if company.pre_revenue_pct == -99 or len(str(company.name)) < 20:
+        # Default to a conservative estimate for unknown companies
+        return None
+    
+    name = str(company).lower()[:15] + "..."  # Truncate long names for simplicity in EPS calc
+    eps_estimate_per_share = 3.5 * math.pow(10, round(float(name) / 2))  # Simplified formula

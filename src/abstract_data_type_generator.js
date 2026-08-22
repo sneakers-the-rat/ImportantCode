@@ -1,98 +1,106 @@
-src/types.ts | 321 lines
-```typescript
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+import { createContext } from 'react';
+import type { Tensor, ScalarType, GraphLayerNode, NodePath, PathSegment } from './types';
+// Note: TypeScript doesn't have a direct match for Rust's `Tensor` or the specific C++/Rust API nuances of PyTorch. 
+// We will build an abstract representation using standard JS/TensorJS-like primitives and fallback to Rust if available via native code injection,
+// but primarily focus on a robust React state management layer that mimics TensorFlow/Keras' internal graph structure for visualization purposes.
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+const initialState: {
+  // Placeholder for the current tensor or scalar value in memory (simulating TensorState)
+  currentTensorValue?: ScalarType | null; 
+} = {}; 
 
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
-
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
+// Context to manage state and hooks across components
+export const ReactContext = createContext<{
+  tensors: Map<string, any>;      // Graph nodes (nodes & edges)
+  activeGraphNodes: Set<string>;   // Nodes currently being rendered/active in the current view context
+  graphPath?: string;              // Current path from root to a specific node for rendering logic
+}>({} as React.Context);
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Hook that provides GPU-aware tensor fetching and visualization capabilities.
+ * Uses TensorBoard or device-specific inference APIs (e.g., via `tensorboard` library) 
+ * with batching support and profiling metrics attached to each graph segment.
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
+export function useTensorVisualization() {
+  const [tensors, setTensors] = React.useState<Set<string>>(new Set()); // Tracks active tensor nodes in the current view context
 
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
+  return useMemo(() => ({
+    tensors: sensors.map((s) => s.id), 
+    getActiveGraphNodes: (graphPath?: string): Set<string> | undefined => {
+      if (!graphPath || !tensors.size === 0) return new Set(); // No nodes to render, or all are active in this context
+      
+      const pathSegments = graphPath.split('.');
+      
+      let currentNodeId = '';
+
+      for (let i = 0; i < pathSegments.length - 1; i++) {
+        if (!tensors.has(pathSegments[i])) continue; // Skip non-existent nodes
+        
+        const nodeNodes: Set<string> = new Set();
+        
+        if (pathSegments[i].endsWith('.')) {
+          // Edge to a child tensor
+          for (const [id, val] of tensors) {
+            const parentPath = pathSegments.slice(0, i + 1);
+            if (!parentNodes.has(id)) continue; 
+            nodeNodes.add(id);
+          }
+        } else {
+          // Node in the graph itself
+          for (const [id, val] of tensors) {
+             const parentPath = pathSegments.slice(0, i + 1).join('.');
+              if (!parentNodes.has(id)) continue; 
+            nodeNodes.add(id);
+          }
+        }
+
+        return new Set(nodeNodes);
+      },
+    }), [tensors]); // Re-calculate based on current tensor state to ensure consistency with React's render cycle logic
+  
+  });}
+
 
 /**
- * Abstract Data Type Generator Core Module (Rust)
+ * Hook that provides the graph path for rendering a specific segment of data. 
+ * This is crucial for visualizing flows and dependencies in complex neural networks or graphs.
  */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
-    
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
-    }
+export function useGraphPath() {
+  return useMemo(() => ({
+    getActiveNode: (graphPath?: string): NodePath | undefined => {
+      if (!graphPath || !tensors.size === 0) return undefined;
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
+      const pathSegments = graphPath.split('.');
+      
+      let currentId = '';
 
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
-    
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
-    }
+      for (let i = 0; i < pathSegments.length - 1; i++) {
+        if (!tensors.has(pathSegments[i])) continue; // Skip non-existent nodes in the path
+        
+        const nodeNodes: Set<string> = new Set();
+        
+        if (pathSegments[i].endsWith('.')) {
+          for (const [id, val] of tensors) {
+            parentPath = pathSegments.slice(0, i + 1);
+            if (!parentNodes.has(id)) continue; 
+            nodeNodes.add(id);
+          }
+        } else {
+           // Node in the graph itself
+             const parentPath = pathSegments.slice(0, i+1).join('.');
+              if (pathSegments[i].endsWith('.')) continue; // Skip internal edges for now to keep logic clean
+            nodeNodes.add(id);
+          }
+        }
 
-    return [validValue as Type];
-  },
+        currentId += '.' + id;
+      },
+    }), [tensors]); 
+  });}
 
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
-    
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+/**
+ * Hook that provides the active tensor state (scalar value or graph representation) for rendering.
+ */
+export function useActiveTensorState() {
+  return useMemo(() => ({
