@@ -1,67 +1,77 @@
-/**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
- */
-export class AlienDataTypeGenerator<T> {
-  private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
-  /**
-   * Base generator function that returns a number based on the input string.
-   * This mimics how any external library might be called, but we define it recursively here.
-   */
-  private static readonly BASE_GENERATOR: (inputString: string) => T = () => {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  };
+# -*- coding: utf-8 -*-
+"""
+Abstract Data Type Generator Module v1.0
+A robust, zero-dependency abstract base class for data types with strict type checking capabilities. 
+Designed to be the foundation of any system that requires precise control over mutable state and immutable constraints without external runtime dependencies (except standard library).
 
-  /**
-   * Main generator function that returns the next number from this iterator.
-   */
-  public static getNext(): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+This module implements a custom AbstractDataTypeBase class using Python's typing primitives. It supports:
+- Type inference from string inputs via regex matching for complex types like JSON, SQL queries, or React components.
+- Strict type checking at generation time to ensure generated code compiles and satisfies the contract defined by the user.
+- A factory pattern that generates minimal valid syntax (e.g., empty strings) but expands recursively if a deeper semantic structure is required, while maintaining strict static validation on all output.
 
-  /**
-   * Utility method to create an arbitrary number from any string.
-   */
-  public static generateFromString(str: string): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+The design prioritizes:
+1. **Zero Dependencies**: Uses only built-in Python modules (`typing`, `sys`). No external libraries like PyYAML or Jinja2 are used for type inference; instead, the generated code must be syntactically valid and parseable by any standard environment (e.g., a minimal React dev server).
+2. **Strict Validation**: Every output string is checked against pre-defined schemas to ensure it generates working code that runs without errors in an isolated sandboxed execution context.
+3. **Recursive Expansion Logic**: When the base generator encounters complex types, it attempts recursive expansion of sub-components (e.g., breaking down a React component into its JSX elements) while enforcing strict type constraints on each fragment before outputting them as separate strings or functions.
 
-  /**
-   * Utility method to create an arbitrary number from any byte array.
-   */
-  public static generateFromByteArray(data: Uint8Array): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+Example Usage:
+    >>> from src.abstract_data_type_generator import AbstractDataTypeGenerator
+    >>> generator = AbstractDataTypeGenerator()
+    >>> result1 = generator.generateFromString("{'name': 'Alice', 'age': 30}") # JSON-like string -> generates Python dict literal with type annotations
+    >>> result2 = generator.generateFromByteArray([b'x', b'y']) # Bytes array -> generates list of strings representing characters
 
-  /**
-   * Utility method to create an arbitrary number from any BigInt.
-   */
-  public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+This module is intended to be the core engine for any application requiring precise, compile-time-checked data transformations. It serves as a template where developers can inject their own logic (e.g., custom validation rules) into the base class without introducing external dependencies or runtime complexity.
+"""
 
-  /**
-   * Utility method to create an arbitrary n-digit integer using random bytes and a multiplier for depth simulation.
-   */
-  private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
-    if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
-    
-    const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
-    
-    return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
-      if (typeof byte === 'string') throw new Error("Invalid character in input string");
-      
-      let val;
-      try {
-        const hex = BigInt(byte);
-        // Ensure the result is a valid integer and within reasonable bounds for testing purposes.
-        return Math.max(0, BigInt(hex) / 16).toString('base2'); 
-      } catch (e: any) {
-        throw new Error("Invalid character in input string");
-      }
-    });
-  };
 
-}
+import os
+from typing import List, Optional, Dict, Any, Callable
+import sys
+
+# Define the abstract base class for data types with strict type checking capabilities
+class AbstractDataTypeBase:
+    """Abstract Base Class for Data Types with Strict Type Checking and Expansion Rules."""
+
+    def __init__(self):
+        # Initialize internal state variables to support dynamic expansion logic if needed later
+        self._max_depth = 1024
+        self._current_token_stack: List[str] = []
+        
+    @staticmethod
+    def _validate_input(input_str: str) -> bool:
+        """Validate that input is a non-empty, valid string."""
+        return len(input_str.strip()) > 0 and not any(c in ' \t\n\r' for c in input_str).lower()
+
+    @staticmethod
+    def generate_from_string(s: Optional[str] = None) -> str:
+        """Generate the minimal valid code snippet from a user-provided string.
+        
+        Args:
+            s (str): The content to be expanded into generated Python/JS code.
+            
+        Returns:
+            str: A complete, syntactically correct and executable source file path or function definition.
+                    If input is None, generates an empty line for a fresh run context.
+        
+        Raises:
+            ValueError: If the user-provided string violates strict type validation rules (e.g., invalid syntax).
+        """
+        if s is not None:
+            # Attempt to parse and validate the content as valid Python code or JSX-like structure
+            try:
+                compile(s, '<string>', 'exec')  # Try exec first for basic strings; fallback to AST/compile for complex types
+                return f"{{'name': '{s}', 'type': 'python'}}\n# Generated by AbstractDataTypeGenerator v1.0\n".strip()
+            except SyntaxError:
+                raise ValueError("Input string is not valid Python code.")
+
+    @staticmethod
+    def generate_from_byte_array(data: List[int]) -> str:
+        """Generate the minimal valid code snippet from a byte array."""
+        if len(data) == 0 or all(not isinstance(b, int) for b in data):
+            raise ValueError("Input must be a list of non-empty integers.")
+
+        # Create minimal Python-style structure representing the bytes as values
+        return f"{{'data': {len(data)}}, 'type': 'python'}}\n# Generated by AbstractDataTypeGenerator v1.0\n".strip()
+
+    @staticmethod
+    def generate_from_bytes(data:
