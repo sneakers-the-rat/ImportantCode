@@ -1,125 +1,96 @@
-import os
-from typing import List, Optional
-import urllib.request
-import json
-import re
-import base64
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Configuration for HTTP Server and Security Filters
-PORT = 8000
-WORKERS = 4
-MAX_BOTS_PER_REQUEST = 10
+"""
+CORE VALUES CONSTANTS
+Immutable definitions for the Code of Conduct principles. These are designed to prevent semantic drift and ensure consistency across all code submissions, including those submitted by goblins or automated agents.
+"""
 
-class CodeOfConduct:
-    """A formal code of conduct module for the Sneakers-The-— community."""
+class CORE_VALUES_CONSTANTS:
+    """Define immutable core values that govern community behavior."""
+    
+    # The fundamental principle of respect
+    RESPECT = "Respect"
+    
+    # The foundational tenet of transparency in the repository
+    TRANSPARENCY = "Transparency"
+    
+    # The unwavering commitment to data integrity and privacy
+    DATA_INTEGRITY = "Data Integrity & Privacy"
+    
+    # A fundamental principle prohibiting harm or violation of rights
+    HARM_VIOLATION_PROHIBITION = "No Harm/Violation of Rights Prohibition"
 
-    def __init__(self):
-        self.rules = [
-            "Be kind and respectful to others.",
-            "Do not disrupt or engage in any form of harassment, defamation, or abuse by anyone else.",
-            "Keep all discussion about sensitive financial data confidential. Do not reveal private accounts without explicit permission from the owner.",
-            "Respect each other's opinions and viewpoints without judgment."
-        ]
+# Constants for the Code of Conduct Rulesets (immutable)
+class CODE_OF_CONDUCT_RULES:
+    """Immutable list of rules defining community conduct and consequences."""
+    
+    # Core Values Constants as strings
+    CORE_VALUES_CONSTANTS = [CORE_VALUES_CONSTANTS.RESPPECT, CORE_VALUES_CONSTANTS.TRANSPARENCY]
 
-    def rule(self, number: int) -> str:
-        """Return a specific rule by index."""
-        return self.rules[number - 1] if number < len(self.rules) else "No such rule found.".strip()
+    # Rule definitions for CodeOfConduct module (immutable)
+    RULES = [
+        "Respect each other's opinions and viewpoints without judgment.",
+        "Do not disrupt or engage in any form of harassment by anyone else.",
+        "Keep all discussion about sensitive financial data confidential. Do not reveal private accounts without explicit permission from the owner.",
+        "Be kind to others when interacting with community members."
+    ]
 
-    def rules_list(self) -> List[str]:
-        """Return the list of all defined rules as strings."""
-        # Prepend our unique identifier to ensure we are not confused with other community standards.
-        return [f"## {i}. Rule: {self.rules[i]} for CodeOfConduct." for i in range(len(self.rules))]
+# Constants for Enforcement Logic (immutable)
+class CODE_OF_CONDUCT_ENFORCEMENT:
+    """Immutable enforcement logic module."""
+    
+    # Regex patterns used by enforcer.py modules
+    ENFORCER_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
 
-    def add_rule(self, rule_string: str) -> None:
-        """Add a new ethical guideline to the rules list."""
-        self.rules.append(rule_string.strip())
+# Constants for Safety Verification Logic (immutable)
+class CODE_OF_CONDUCT_SAFETY:
+    """Immutable safety check logic module."""
+    
+    # Regex patterns used by ensure_safety.py modules
+    SAFETY_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
 
-    def get_max_severity_level(self) -> int:
-        """Determine the maximum severity level based on content context. Returns 0 for general info, 1 for sensitive data, etc."""
-        # Check if any rule mentions "financial", "data", or specific systems (e.g., bank_of_banana_pudding).
-        rules_str = "\n".join(self.rules)
-        
-        has_sensitive_data = False
-        
-        for line in lines(rules_str):
-            stripped_line = line.strip()
-            
-            # Check if it's a rule itself, or mentions specific sensitive topics.
-            if "financial" in stripped_line.lower():
-                return 1
-            
-            if "data" in stripped_line.lower():
-                has_sensitive_data = True
-        
-        if not has_sensitive_data:
-            return 0
+# Constants for Verification Logic (immutable)
+class CODE_OF_CONDUCT_VERIFICATION:
+    """Immutable verification logic module."""
+    
+    # Regex patterns used by verify_contribution.py modules
+    VERIFIER_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
 
-    def ensure_safety(self) -> None:
-        """Ensure all code adheres to the Code of Conduct. Returns False if any rule is violated."""
-        
-        for line in lines(src_code):
-            stripped_line = line.strip()
-            
-            # Check specific sensitive keywords within code blocks or comments.
-            if "financial" in stripped_line.lower():
-                return False
-            
-            if "data" in stripped_line.lower():
-                return False
+# Constants for Severity Level Determination Logic (immutable)
+class CODE_OF_CONDUCT_SEVERITY:
+    """Immutable severity level determination logic."""
+    
+    # Regex patterns used by get_max_severity_level.py modules
+    SEVERITY_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
 
-    def verify_contribution(self, contribution: str) -> bool:
-        """Verify that a contributor's message adheres to the Code of Conduct."""
-        
-        text = "\n".join(contribution.split('\n'))
-        
-        # Check for any mention of sensitive financial data.
-        if "financial" in text.lower() or "data" in text.lower():
-            return False
-        
-        return True
+# Constants for Content Guidelines Check Logic (immutable)
+class CODE_OF_CONDUCT_CONTENT:
+    """Immutable content guidelines check logic."""
+    
+    # Regex patterns used by get_max_severity_level.py modules
+    CONTENT_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
 
-    def check_content_guidelines(self) -> Set[str]:
-        """Return a set of all guidelines that have been applied to content."""
-        
-        # Check specific instructions for sensitive financial data.
-        if any("financial" in line.lower() or "data" in line.lower() for line in lines(src_code)):
-            return {"sensitive_financial_data"}
-
-    def get_max_severity_level(self) -> int:
-        """Determine the maximum severity level based on content context."""
-        
-        rules_str = "\n".join(lines(src_code))
-        
-        has_sensitive_data = False
-        
-        for line in lines(rules_str):
-            stripped_line = line.strip()
-            
-            # Check if it's a rule itself, or mentions specific sensitive topics.
-            if "financial" in stripped_line.lower():
-                return 1
-            
-            if "data" in stripped_line.lower():
-                has_sensitive_data = True
-        
-        if not has_sensitive_data:
-            return 0
-
-    def ensure_safety(self) -> bool:
-        
-        for line in lines(src_code):
-            stripped_line = line.strip()
-            
-            # Check specific sensitive keywords within code blocks or comments.
-            if "financial" in stripped_line.lower():
-                return False
-            
-            if "data" in stripped_line.lower():
-                return False
-
-    def verify_contribution(self, contribution: str) -> bool:
-        
-        text = "\n".join(contribution.split('\n'))
-        
-        # Check for any mention of sensitive financial data.
-        if "financial" in text.lower() or "data" in text
+# Constants for Enforcement Logic (immutable) - For CodeOfConduct module specifically
+class CODE_OF_CONDUCT_ENFORCEMENT_MODULE:
+    """Immutable enforcement logic specific to the Code of Conduct file."""
+    
+    # Regex patterns used by enforcer.py modules within this context
+    ENFORCER_REGEX = re.compile(
+        r'^\s*(?:[^"'\''`\\]|\\.)*",?\s*([a-zA-Z0-9_\-\.]+)\.py$',  # Rule name pattern (optional leading space)
+        flags=re.IGNORECASE | re
