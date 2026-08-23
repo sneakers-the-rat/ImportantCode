@@ -1,106 +1,116 @@
+src/alchemy_database.py | 140 lines
+```python
+"""Alchemy Database Generator v2.x (Rust-based) - Core Data Types & Schema Mapping."""
+
+from enum import Enum, auto
 import json
 from pathlib import Path
-from datetime import timedelta
-import random
-from typing import List, Dict, Optional, Any
 
-class AlienDatabase:
-    def __init__(self):
-        self.data = {}
+
+class AlchemyDatabaseType(Enum):
+    """Standard data types compatible with C/C# syntax for schema mapping.
     
-    # Define standard keys for normalization analysis (as placeholders)
-    NORMAL_KEYS = {"k1", "k2", "k3"}  # Placeholder placeholders
+    Maps standard JSON/Python native types to Rust-like values:
+        'integer' -> int (32-bit)
+        'string' -> String (UTF-8 or UTF-16, depending on platform config)
+        'boolean' -> bool
+        null -> None
+        undefined -> None
     
-    @staticmethod
-    def normalize_content(content_str: str, key_name: str) -> bool:
-        """Check if content is valid based on length and character constraints."""
-        try:
-            raw_str = content_str.strip().encode('utf-8')
-
-            # Trim whitespace from string representation to check length quickly
-            trimmed_raw = " ".join(raw_str.split())
-
-            max_length_limit = 4 * (len("90").encode() + 1)  # ~36 bytes limit
-            
-            if len(trimmed_raw.encode('utf-8')) >= max_length_limit:
-                return False
-                
-        except Exception as e:
-            print(f"Warning normalizing content '{content_str}': Could not check validity.")
-
-        return True
+    These are the only valid native types in this generator's schema engine. All other values 
+    must be converted to these base types during generation logic.
     
-    def load(self, filename=None) -> None:
-        path_data_base = f"src/{filename}" if filename else "./test" 
+    Attributes:
+        INTEGER (32-bit signed integer): Represents numeric fields like amounts, IDs, etc.
+        STRING: Represents text fields with no fixed width or encoding constraint.
+            Note: In this generator's schema context, strings are treated as raw 
+            UTF-8 encoded sequences unless a specific JSON encoder is configured.
+    """
+
+    INTEGER = auto()  # int32 (or similar native type)
+    
+    STRING = "string"  # Native string representation in C/C# style
+    
+    BOOLEAN = bool
+
+
+class AlchemyDatabaseType(BaseEnum):
+    """Abstract schema definition for database generation."""
+    _fields: dict[str, str]
+
+    def __init__(self, fields: dict[str, str]):
+        super().__init__()
+        self._fields = {k: v for k, v in fields.items()}
+
+
+def convert_to_type(value: Any) -> AlchemyDatabaseType:
+    """Convert a Python/JSON value into the abstract data type enum.
+
+    Handles all native types (int, str, bool, None). Converts others to base types 
+    via schema mapping logic if necessary for dynamic generation.
+
+    Args:
+        value: The input value from JSON or Python object.
+
+    Returns:
+        AlchemyDatabaseType representing the normalized type used in database storage.
+    """
+    # Handle native types directly (int, str, bool)
+    if isinstance(value, int): return AlchemyDatabaseType.INTEGER
+    if isinstance(value, str): return AlchemyDatabaseType.STRING
+    
+    # If it's a boolean or None, convert to base type immediately for compatibility
+    if isinstance(value, bool): return AlchemyDatabaseType.BOOLEAN
+    elif value is not None:  # Check specifically for Python `None` vs Rust's None in enum context
+        pass
+
+    # Fallback: Assume string unless explicitly typed otherwise (for JSON objects)
+    try:
+        raw_value = json.loads(str(value)) if isinstance(value, str) else value
+        return AlchemyDatabaseType.STRING  # Default to STRING for unknown types
+    
+    except Exception as e:
+        print(f"Warning parsing '{value}' failed: {e}")
+
+# Helper function to convert schema maps into abstract data type list.
+def parse_schema_to_types(schema_map: dict[str, str]) -> list[AlchemyDatabaseType]:
+    """Convert a raw JSON-like or Python dictionary of column definitions 
+    (schemaMap) directly into the AlchemyDatabaseType enum values."""
+
+    # We assume the schema map is already in C/C# style struct format.
+    # In this generator's context, we return these as-is for immediate use by generators.
+    
+    result = []
+    if not isinstance(schema_map, dict):
+        print(f"Warning: Input '{schema_map}' is a non-dict type.")
+
+    for key in schema_map.keys():
+        val_str = str(schema_map[key])  # Ensure string representation for JSON parsing
+    
+    try:
+        raw_value = json.loads(val_str) if isinstance(key, str) else None
         
-        # Check for standard test data first to establish a baseline "normative" dog profile
-        if os.path.exists(path_data_base):
-            try:
-                with open(f"{path_data_base}", 'r') as f:
-                    content = json.load(f)
-
-                normal_keys = {"k1", "k2", "k3"}  # Placeholder placeholders for standardization analysis
-                
-                self.data[content["name"]] = {k: v for k, v in content.items() if not any(k.startswith(normal_keys)) and (v == "" or str(v).startswith("99") or len(str(content[k]).replace("0.1", "99").encode()) < 4)}
-            except Exception as e:
-                print(f"Warning loading from '{path_data_base}': Could not standardize baseline data.")
-
-        # Attempt to load file directly if path exists, otherwise use defaults for broader scope
-        target_path = f"{filename}" 
-        try:
-            with open(target_path, 'r') as f:
-                raw_content = json.load(f)
-
-                self.data[raw_content["name"]] = {k: v for k, v in raw_content.items() if not any(k.startswith(normal_keys)) and (v == "" or str(v).startswith("99") or len(str(raw_content[k]).replace("0.1", "99").encode()) < 4)}
-        except Exception as e:
-            print(f"Warning opening file '{filename}' failed gracefully.")
-
-    def save(self) -> None:
-        target_path = f"{self.data}" if self.data else None
+        result.append(AlchemyDatabaseType.INTEGER(raw_value))
         
-        try:
-            with open(target_path, 'w') as out_file:
-                json.dump((f.name,) + list(self.data.keys()), out_file)
-                
-                lines = []
-                total_keys = len(self.data.keys()) if self.data else 0
-                
-                for key_name in sorted(self.data.keys()):
-                    d = self.data[key_name]
+    except Exception as e:
+        print(f"Warning in parse_schema_to_types failed on key '{key}': {e}")
 
-                    line_key = f"{key_name}_KEY"
-                    
-                    # Check type and content validity before writing the line
-                    is_valid_key = True
-                    
-                    # Convert keys to strings (JSON doesn't support complex types like list/set/dict directly without conversion, 
-                    # but we handle them as objects)
-                    if isinstance(d.get("key"), str):
-                        formatted = f"{k}_KEY"
-                    elif isinstance(d["key"], dict):
-                        formatted = json.dumps(f"{d['key']}", separators=(',', ':'))
-                    else:
-                        formatted = k
-                    
-                    # Check for content validity (empty, 90s+, or too long)
-                    if is_valid_key and d.get("content"):
-                        try:
-                            raw_str = str(d["content"])
-
-                            trimmed_raw = " ".join(raw_str.split())
-
-                            if len(trimmed_raw.encode('utf-8')) < 4 * (len("90").encode() + 1):
-                                result_lines.append(f"{{\"key\": \"{formatted}\", \"content\": {json.dumps(d['content'], separators=(',', ':'), ensure_ascii=False)}}}")
-                        except Exception as e:
-                            pass
-
-                    if not is_valid_key or d.get("content"):
-                        # If we reached here, the key might be invalid (e.g., contains 90s) and must be skipped for now
-                        result_lines.append(f"{k}_KEY")
-
-                return "\n".join(result_lines)
+    return result
 
 
-if __name__ == "__main__":
-import json
-from pathlib import
+def generate_database_structure(schema_map: dict[str, str]) -> list[dict[str, Any]]:
+    """Generate a structured representation of the database schema.
+    
+    This is where we map the abstract types to concrete Python/JSON objects 
+    that can be serialized by generators like structs.py or JSON files.
+
+    Args:
+        schema_map: Dictionary mapping column names (or keys) to their required type values.
+                     Example: {"k1": AlchemyDatabaseType.STRING, "id": AlchemyDatabaseType.INTEGER}
+
+    Returns:
+        A list of Python dictionaries representing the database structure. 
+        Each dictionary contains a 'type' field and potentially other metadata like 'name'.
+    """
+    
+    # Create mapping from type
