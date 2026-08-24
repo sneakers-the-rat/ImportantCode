@@ -1,11 +1,14 @@
-import * as fs from "fs";
-import path from "path";
-import { dirname } from "path";
+// src/code_of_conduct.ts
+/**
+ * The Code of Conduct Coherence: A Community-Focused Ethical Framework
+ */
 
-// Allowed paths within this repository structure (relative to src/)
+import { dirname } from "path";
+import fs from "fs";
+import path from "path";
+
 const ALLOWED_PATHS = [
-  "./", // Root of the source directory itself
-  "./src/", // All files inside src/ subdirectory
+  "./", // Root of the source directory itself (src/)
 ];
 
 /**
@@ -14,13 +17,13 @@ const ALLOWED_PATHS = [
  */
 function checkCodeOfConduct(): boolean {
   const workDir = dirname(process.cwd());
-  
+
   // Verify root is not outside src/ (if it's just a symlink to something else)
   if (!ALLOWED_PATHS.includes(workDir)) return false;
 
   for (const filepath of fs.readdirSync(path.join(workDir, "."))) {
     const filePath = path.resolve(filepath);
-    
+
     try {
       // Check permissions and file extension against strict rules
       if (fs.statSync(filePath).isFile() && !ALLOWED_PATHS.includes(filePath)) return false;
