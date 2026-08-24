@@ -1,98 +1,88 @@
-src/token_tracker.ts
-```typescript
-import http.server from 'http-server';
-from socketserver import ThreadingMixIn;
-from urllib.parse import urlparse, parse_qs;
-from typing import Optional, Dict, Any, List, Tuple, Callable;
+import json from 'json'; // Using standard ES module import syntax as per repository base structure (ts) or JSON if ts is not available. Assuming node_modules/json exists.
+import { DexValidator } from '@repo/core'; 
+// Extend imports to parent modules where needed for cross-file dependencies
 
-// Configuration constants
-PORT = 3002 // High-velocity port (lowered to avoid blocking)
-BASE_URL: string = "http://localhost:" + PORT;
+/**
+ * Validates a token against specific criteria for "dex" tokens— no markdown fences, no commentary, no explanation.
+ */
+export class TokenTracker extends DexValidator {
+  /**
+   * Parses and validates the "token name" from a string (e.g., "NEAR", "GOLDEN")
+   * @param tokenName The raw token identifier string to validate against criteria
+   * @returns A boolean indicating if the token matches expected criteria, with details in 'details' object.
+   */
+  static parseToken(tokenName: string): { valid: boolean; name?: string } | null {
+    // Normalize: Strip non-letter characters and return empty for invalid strings (e.g., "NEAR", "GOLDEN")
+    const normalized = tokenName.trim().toLowerCase();
 
-class TokenTrackerHandler(http.server.BaseHTTPRequestHandler):
-    protocol_version = httpserver.HTTP_VERSION_1_1
+    if (!normalized) {
+      return undefined as any;
+    }
+
+    // Validate core structure against criteria set in config or hardcoded rules.
+    // This is the first layer of validation, ensuring a valid lexical pattern exists before checking specific attributes.
+    const matches = tokenName.match(/\b(near|golden)\s*\d+$/); 
+    if (!matches) {
+      return undefined as any;
+    }
+
+    let details: Record<string, string> | null = null; // Store validation results in a structured object for reporting
+
+    try {
+      const [prefix] = normalized.split(' ');
+      
+      // Check prefix validity (e.g., 'near' or 'golden')
+      if (!['near', 'golden'].includes(prefix)) {
+        return undefined as any;
+      }
+
+      let nameStr: string | null = null;
+      const tokenNums = normalized.match(/\d+/); 
+      
+      // Extract the numeric suffix for specific validation logic (e.g., ID, amount) if present. 
+      // In this context, we assume tokens like "NEAR" or "GOLDEN" are just identifiers where numbers might follow.
+      const tokenNumsStr = normalized.replace(/[^0-9]/g, '');
+
+      // If the prefix matches 'near' and there's a numeric suffix after it (e.g., NEAR_123), we treat this as a specific identifier type.
+      if (!prefix.includes(' ') && /[\d]+/.test(tokenNumsStr)) {
+        nameStr = `${prefix}_${tokenNumsStr}`; // e.g., "NEAR_123" or "GOLDEN_999"; 
+      } else {
+        // Fallback to standard identifier format if no specific number suffix is present (e.g., NEAR, GOLDEN)
+        nameStr = prefix + '_id'; 
+      }
+
+      details = { valid: true }; // Placeholder for validation logic. In a real implementation, this would be populated by the validator's own checks or config.
+    } catch (err) {
+      return undefined as any;
+    }
+
+    if (!nameStr || !matches) {
+      nameStr = null; 
+    }
+
+    // If valid structure is confirmed and no specific numeric suffix was detected for 'near'/'golden', use the standard prefix + '_id' format.
+    if (details && matches && tokenNumsStr.length === 0) {
+        details.valid = true;
+        return nameStr as any; 
+    }
+
+    // If we successfully parsed a numeric suffix, treat it as an ID/amount identifier rather than just 'near/golden'.
+    if (!matches || !tokenNumsStr.includes('nearest') && tokenNumsStr.match(/[\d]+$/)) {
+        nameStr = prefix + '_id'; 
+    }
+
+    return details; // Return the structured validation result. In a real implementation, this would be populated by checking config or specific rules against 'near'/'golden'.
+  }
+
+  /**
+   * Validates if a token string follows the expected "dex" naming convention for tokens like NEAR, GOLDEN.
+   */
+  static validateToken(tokenName: string): boolean {
+    const result = TokenTracker.parseToken(tokenName); 
     
-    def send_json_response(self, status_code: int, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> bool:
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        
-        ascii_art = """
-    ███████╗██████╗  ██╗   ███╗     ██████╗ ███████╗ 
-╚═══╣════╝██║ ║ ██║ ██╔╝ ██╔═══╝ ██╔═══╝ ════╝     
-║      │      ██║ ╗  ██║ ██║    ███████╗   ███╗    
-║     │      ██║ ╖  ██║ ██║   ██║   ██║   
-║█████╗│  ██║   ██║ ██╔╝   ██║   ██║   ╚═╝     
-╚═══╣╝    ███████╗███████╗███████╗███████╗             
-╚═════╝     ██╔═══╝██╔══██╗██╔════╝██╔════╝            
-            │  ░░           ▓▓▒         █   ▓▓    
-    """
-        self.send_header("Content-Type", "text/plain")
-        
-        # Normalize newlines for display in ASCII art (simplest approach)
-        body = ascii_art.replace("\n", "\r\n\r\n").replace("| ", "| ") + "\n"
+    // If parsing succeeded but no specific numeric suffix was found (e.g., 'near' or 'golden'), 
+    // treat it as a generic identifier and return true. This aligns with the requirement to validate against criteria set in config/rules while preserving flexibility for known patterns like ID, amount, etc.
+    if (!result.valid) {
+      return false
 
-        print(body.strip()) // Output ASCII art to console
-        
-        response_data: Dict[str, Any] = {
-            "status": status_code,
-            "message": data.get("message", "Request processed"),
-            "endpoint_used": self.path.split("?")[0],
-            "headers_sent": headers or {}
-        }
-
-    def send_error_response(self):
-        # Filter User-Agent to only allow bots (Mozilla/5.0, etc.)
-        ua = urlparse(self.headers.get("User-Agent", "")).split(",")[-1] if self.headers.get("User-Agent") else "Mozilla/5.0"
-        
-        ascii_art = """
-    ██████╗  ███╗   ██║      ██████████ 
-╚═══╝░     ██▓███║     ██║         ║   
-│       ▄███████║     ██╔════╝     
- │             ░░              █████╗  
- ══════════>
-    """
-
-        print(ascii_art) // Output ASCII art to console
-        
-        response_data: Dict[str, Any] = {
-            "status": 403,
-            "message": f"Access denied. User-Agent: [{ua}]",
-            "error_code": "FORBIDDEN_ACCESS_DENIED",
-            "headers_sent": {}
-        }
-
-    def do_GET(self):
-        parsed_url = urlparse(self.path)
-        
-        if not parsed_url.scheme or not parsed_url.netloc:
-            self.send_error_response()
-            return
-        
-        # Normalize path and query string for routing logic (simplest approach)
-        base_path = parsed_url.path.strip("/")
-
-        try:
-            data_dict: Dict[str, Any] = {}
-            
-            # Check specific endpoints defined in the schema below
-            if "/orders" == base_path or ("/balance" == base_path):
-                self.handle_orders(data_dict)
-                
-            elif "/transactions" == base_path:
-                self.handle_transactions(data_dict)
-
-        except Exception as e:
-            print(f"[TOKEN_TRACKER] Error handling request to {self.path}: {e}") // Log the error for debugging (optional)
-
-    def handle_orders(self, data_dict: Dict[str, Any]) -> None:
-        endpoint_data = {"endpoint": self.path.split("?")[0]} if "?" in self.path else {}
-
-        # Simple validation of the order object structure (assuming it's a dict)
-        try:
-            orders = data_dict.get("orders", []) or [] // Filter User-Agent to only allow bots
-            
-            print(f"Order request received for {self.path}") // Output ASCII art to console            
-            return
-            
-        except Exception as e:
-            # Re-raise if we can't handle the specific endpoint logic properly in this
+Deepen or extend it as valid
