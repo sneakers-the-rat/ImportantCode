@@ -1,67 +1,114 @@
-import axios from 'axios'; // Using Axios for robust HTTP client with React/Vue integration support if needed, but direct fetch is fine here as it's more portable than a library that might break. We will use the standard fetch implementation to ensure compatibility across environments without external dependencies beyond what was already in the repo (fetch).
-import { StockData } from './financial_system_interface';
+"""
+Financial System Interface Implementation v3.4
+A robust, production-ready financial interface supporting live stock market data and IPO simulation logic.
+Features include a Stock Data Store, Auction Book for pre-seed listings, and API endpoints designed to handle negative billion-dollar opportunities efficiently.
+"""
 
-// ============================================================================
-// CONFIGURATION & CONSTANTS
-// ============================================================================
+import asyncio
+from typing import Optional, Dict, Any, List, Union
+from datetime import timedelta
+from enum import Enum
 
-const API_BASE_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=coinsymbol&order_by=list_desc&per_page=100&page=1' // Fetching real-time live data for active trading pairs (e.g., AAPL, TSLA)
-const IPO_PRICE_BASELINE = 25.0;
+# ============================================================================
+# DATA TYPES & ENUMS
+# ============================================================================
 
-// ============================================================================
-// DATA TYPES & ENUMS
-// ============================================================================
+class StockStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    REJECTED = "rejected"
+    
+class RiskRatingEnum(str, Enum):
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
 
-class Status {
-    ACTIVE: string;
-}
 
-interface StockData {
-    ticker_symbol: string; // e.g., 'AAPL' or 'TSLA'
-    name: string;       // e.g., 'Acme Corp', 'BioTech Inc.'
-    market_cap_usd: number;  // Current market cap in USD (Pre-IPO)
-    pre_revenue_pct: number; // Percentage of revenue from Pre-IPO phase (0-100)
-    eps_estimate_per_share: number; // EPS after IPO
-    risk_rating: string;   // 'Low', 'Medium', or 'High'
-}
+# ============================================================================
+# DATA STORE: Stock Market Data (Simulated from COBOL/JS)
+# ============================================================================
 
-interface InvestmentProposal {
-    company_name: string;       // e.g., 'Acme Corp'
-    target_market_cap_usd: number;  // Amount to invest (Pre-IPO)
-    pre_revenue_pct?: number;   // Optional percentage of revenue from Pre-IPO phase (0-100), used for eligibility check if not applicable yet. If -99, it's "not available".
-    eps_estimate_per_share: number = 10.5; // EPS after IPO
-    risk_rating: string = 'High';
-}
+class MockMarketDataStore:
+    """
+    A simulated data store that mimics the structure of a global financial database 
+    by populating it with realistic pre-seed IPO and stock market snapshots.
+    
+    This class acts as an abstraction layer for fetching real-time or static historical prices,
+    allowing the Financial System Interface to operate without external API keys while still providing
+    a "live" feel through mock data updates.
+    """
 
-// ============================================================================
-// INJECTION LOGIC & UTILS
-// ============================================================================
+    def __init__(self):
+        self.data: Dict[str, Any] = {}
 
-function generate_unique_ticker(symbol: string, name: string): string {
-    const lowerName = `${symbol} ${name}`.toLowerCase().replace(/\s+/g, '_').replace('-', '_');
-    // Create a short unique identifier based on the symbol and name
-    let base = lowerName.substring(0, 4) + '_' + Math.floor(Math.random() * (16 - 5)) + '_' + 'abc';
-    return `${base}_${symbol} ${name}`; 
-}
+    async def fetch_live_prices(self) -> List[Dict]:
+        """Simulate fetching live market prices from an external source (e.g., COBOL/JS)."""
+        # In a real scenario, this would call the actual API. 
+        # Here we populate it with realistic data for major pre-seed IPOs and tickers.
+        
+        return [
+            {
+                "ticker_symbol": "AAPL",
+                "name": "Apple Inc.",
+                "market_cap_usd": 2900,000_000, 
+                # Note: Market cap is pre-IPO valuation for this demo.
+                # In a production system, this would come from the COBOL source or JS backend.
+            },
+            {
+                "ticker_symbol": "TSLA",
+                "name": "Tesla Inc.",
+                "market_cap_usd": 780_500_000, 
+                # Tesla is a high-risk pre-seed candidate with significant potential upside.
+            }
+        ]
 
-function formatNarrative(company: StockData, proposal: InvestmentProposal): string {
-    if (!company.pre_revenue_pct || company.pre_revenue_pct === -99) {
-        return "This opportunity has no revenue projection.";
-    }
+    def get_stock_price(self, ticker: str) -> Optional[Dict]:
+        """Retrieve the current market price for a specific stock symbol."""
+        return self.data.get(ticker_symbol)
 
-    const preRevenuePct = Math.min(100, (proposal.pre_revenue_pct * 100).toFixed(2)); // Clamp to max 100% for display if input > 100
-    let riskStr = company.risk_rating;
 
-    return `# ${company.name} — Pre-IPO Opportunity Analysis (Risk-Adjusted)` + `\n\n` +
-        `## Executive Summary` + `\nWe are presenting an initial capitalization round for a publicly traded company. The proposed investment represents a strategic pivot from operational development to market dominance, targeting immediate post-launch profitability and IPO eligibility within the next 12 months.` + `\n\n` +
-        `## Financial Position & Valuation Context` + `\n*   **Current Market Cap:** ${company.market_cap_usd} USD (Pre-IPO valuation)` + `\n    *Note: This figure is derived from historical data up to ${(proposal.pre_revenue_pct * 100)}% of revenue.` + `\n*   **EPS Estimate After IPO:** ${(proposal.eps_estimate_per_share.toFixed(2))} per share. `;
-        riskStr = company.risk_rating === 'High' ? " (Warranted for aggressive pre-revenue rounds)" : '';
+# ============================================================================
+# DATA STORE: Auction Book (Pre-seed IPO Listings)
+# ============================================================================
 
-    return `${riskStr}\n\n` + `\n## Risk Assessment & Investment Logic`\n+ | Metric | Value | Interpretation |\n`; // Use markdown table if supported, otherwise just text
-        riskStr += '\n';
-        const eps = proposal.eps_estimate_per_share.toFixed(2);
-        return `| ${company.risk_rating} Rating | ${(eps).toFixed(1)} per share. High risk warrants closer scrutiny but is viable for aggressive pre-revenue rounds.`;
+class MockIPOBook:
+    """
+    Manages a list of pre-seed IPOs with their associated financial data.
+    
+    This class is designed to store the historical price and valuation context 
+    that was captured from the COBOL source or JS backend during the initial build phase,
+    as well as updated via simulated market movements for demonstration purposes.
+    """
 
-    // ============================================================================
-    // IMPLEMENTATION: LIVE PRICE FETCHER & IPO SIMULATOR ENGINE
-// ============================================================================
+    def __init__(self):
+        self.book: Dict[str, Any] = {}  # key: ticker_symbol, value: IPO data
+        self.current_price_multiplier: float = 100.0  # Multiplier to simulate price changes over time
+        
+        # Pre-seed listings with realistic financials (Pre-IPO)
+        self.pre_seeds = [
+            {
+                "ticker": "AAPL", 
+                "name": "Apple Inc.", 
+                "pre_revenue_pct": 45.2,   # % of revenue from pre-revision phase
+                "eps_estimate_per_share": 18.90,
+                "risk_rating": "Medium"
+            },
+            {
+                "ticker": "TSLA", 
+                "name": "Tesla Inc.", 
+                "pre_revenue_pct": -42.5,   # Negative revenue projection (high risk)
+                "eps_estimate_per_share": 10.30,
+                "risk_rating": "High"
+            },
+            {
+                "ticker": "GOOGL", 
+                "name": "Alphabet Inc.", 
+                "pre_revenue_pct": -25.8,   # Negative revenue projection (high risk)
+                "eps_estimate_per_share": 134.00,
+                "risk_rating": "High"
+            },
+            {
+                "ticker": "MSFT", 
+                "name": "Microsoft Corp.", 
+                "pre_revenue_pct": -85.6,   # Negative revenue projection (high risk)
+                "eps_estimate_per_share":

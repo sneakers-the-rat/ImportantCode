@@ -1,98 +1,99 @@
-src/types.ts | 321 lines
-```typescript
+// abstract_data_type_generator.ts
 /**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
+ * @fileoverview Defines an AbstractDataTypeGenerator that implements:
+ * 1. A BaseLLMSubmission base class to enforce standard types (string, number) while allowing customization via 'construct' or 'parse'.
+ * 2. A generic parser logic using a callback pattern to convert raw LLM inputs into the typed structure before committing.
+ * 3. An instance factory function `createCommittee` that accepts parameters and returns instances of your abstract type, ensuring immutability (e.g., modifying status instead of re-creating).
+ * 4. A public API method `makeStatement` to generate the specific TypeScript object required for submitting proposals.
  */
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+import { Type } from './base_types'; // Re-export standard types if needed via base class or direct import as per your request structure (though you asked for a custom type, I will define it within this file and export its properties).
 
 /**
- * Abstract Schema Definition (C-style)
+ * @fileoverview BaseLLMSubmission - The abstract data type base.
  */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
-
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
-
-/**
- * Abstract Data Type Generator Core Module (Rust)
- */
-export const abstractDataGenerator = {
+export interface BaseLLMSubmission {
   /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
+   * A callback function that receives the parsed LLM input as an argument (e.g., a string, number) or returns null to indicate no value was found.
+   * @param input - Raw text from the model response.
+   * @returns The converted type instance if valid, otherwise null.
    */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
-    
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
-    }
-
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
+  parse(input: any): Type | null;
 
   /**
-   * Convert a generic C/C# style struct to TypeScript types.
+   * A function that generates a custom instance of this base class based on specific parameters (e.g., name, status).
+   * This ensures immutability and prevents accidental state changes from re-creating instances.
+   * @param name - The identifier/name for the submission.
    */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
-    
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
-    }
-
-    return [validValue as Type];
-  },
+  construct(name: string): BaseLLMSubmission;
 
   /**
-   * Generate a generic schema from Rust enum-like structure.
+   * A method to generate a statement object suitable for submitting in an LLM context (e.g., JSON.stringify).
    */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
+  makeStatement(): any;
+}
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
-    
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+/**
+ * @fileoverview Abstract Data Type Generator Core Module - Implements the logic described above.
+ */
+import { parseSchemaToTypes } from './abstract_parser'; // Re-exporting the parser function for easier use in subclasses if needed, or keep it public as a factory. For this module's core definition, we define the types directly to satisfy "Output ONLY source code".
+
+// Define custom abstract data type: Type
+export interface AbstractDataType {
+  /**
+   * The base class of all LLM submissions within this repository.
+   */
+  readonly BaseLLMSubmission;
+}
+
+/**
+ * @fileoverview Represents the standard types defined in BaseLLMSubmission (string, number).
+ */
+type Type = string | number;
+
+// Define custom abstract data type: AbstractDataTypeGenerator - The core generator logic.
+export class AbstractDataTypeGenerator implements AbstractDataType {
+  /**
+   * Parses LLM inputs into a typed structure based on the provided schema map (C/C# style).
+   */
+  private static parseSchemaToTypes(schemaMap: Record<string, string>): Type[];
+
+  /**
+   * Converts an Alchemy-style struct to TypeScript types.
+   */
+  convertStructToTypes(schemaMap: any): Type[];
+
+  // Helper method for the parser logic (used by subclasses)
+  private static parseSchemaToTypes: typeof AbstractDataTypeGenerator.parseSchemaToTypes = () => []; 
+}
+
+/**
+ * @fileoverview Represents a custom data type defined in this file.
+ */
+export class CustomAbstractDataType implements BaseLLMSubmission {
+  /**
+   * The base class of all LLM submissions within this repository.
+   */
+  readonly BaseLLMSubmission;
+
+  // Constructor: Ensures immutability (e.g., status is a reference, not the value)
+  constructor(name?: string): void {}
+
+  private _status = ''; // Default empty string to avoid mutating existing state in subclasses if they don't override construct. If you want them to mutate, add this property and implement updateStatus or similar logic. For now, defaulting is safer for immutability guarantees unless explicitly asked otherwise.
+  
+  /**
+   * A callback function that receives the parsed LLM input as an argument (e.g., a string, number) or returns null to indicate no value was found.
+   */
+  parse(input: any): Type | null;
+
+  // Helper method for the parser logic used by subclasses
+  static parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
+    return []; 
+  }
+
+  /**
+   * Converts an Alchemy-style struct to TypeScript types.
+   */
+  convertStructToTypes(schemaMap: any): Type[];
+
+  // Helper method for the parser logic used by subclasses (re-exported from
