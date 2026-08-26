@@ -1,9 +1,7 @@
-/**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
- */
-export class AlienDataTypeGenerator<T> {
+src/abstract_data_type_generator.py
+
+
+class AbstractDataTypeGenerator {
   private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
   
   /**
