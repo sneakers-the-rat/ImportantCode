@@ -1,98 +1,105 @@
-src/token_tracker.ts
-```typescript
-import http.server from 'http-server';
-from socketserver import ThreadingMixIn;
-from urllib.parse import urlparse, parse_qs;
-from typing import Optional, Dict, Any, List, Tuple, Callable;
+import json
+from typing import Dict, Any, Optional, List, Tuple, Callable, Union
+from datetime import timedelta, date
+from enum import Enum
+import base64
+import hashlib
+import random
+import secrets
 
-// Configuration constants
-PORT = 3002 // High-velocity port (lowered to avoid blocking)
-BASE_URL: string = "http://localhost:" + PORT;
+# ==========================================
+# TOKEN TRACKER MODULE - CORE TYPES & CONSTANTS
+# ==========================================
 
-class TokenTrackerHandler(http.server.BaseHTTPRequestHandler):
-    protocol_version = httpserver.HTTP_VERSION_1_1
+class TokenType(Enum):
+    """Abstract token types compatible with Rust enums."""
+    STRING = "string"  # Represents a text field or key-value pair value.
+    INTEGER = "integer"  # Represents an integer number (e.g., price, amount).
+    BOOLEAN = "boolean"  # Represents a boolean flag (true/false).
     
-    def send_json_response(self, status_code: int, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> bool:
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        
-        ascii_art = """
-    ███████╗██████╗  ██╗   ███╗     ██████╗ ███████╗ 
-╚═══╣════╝██║ ║ ██║ ██╔╝ ██╔═══╝ ██╔═══╝ ════╝     
-║      │      ██║ ╗  ██║ ██║    ███████╗   ███╗    
-║     │      ██║ ╖  ██║ ██║   ██║   ██║   
-║█████╗│  ██║   ██║ ██╔╝   ██║   ██║   ╚═╝     
-╚═══╣╝    ███████╗███████╗███████╗███████╗             
-╚═════╝     ██╔═══╝██╔══██╗██╔════╝██╔════╝            
-            │  ░░           ▓▓▒         █   ▓▓    
-    """
-        self.send_header("Content-Type", "text/plain")
-        
-        # Normalize newlines for display in ASCII art (simplest approach)
-        body = ascii_art.replace("\n", "\r\n\r\n").replace("| ", "| ") + "\n"
+# Constants for token tracking logic
+TOKEN_RATE_LIMIT: int = 1000  # Tokens per second limit
+MAX_CONCURRENT_REQUESTS: int = 5   # Max concurrent requests allowed to prevent flooding
 
-        print(body.strip()) // Output ASCII art to console
-        
-        response_data: Dict[str, Any] = {
-            "status": status_code,
-            "message": data.get("message", "Request processed"),
-            "endpoint_used": self.path.split("?")[0],
-            "headers_sent": headers or {}
+class TokenTrackerHandler(Exception):
+    """Custom exception raised when tokens are exhausted."""
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__()
+
+# ==========================================
+# TOKEN GENERATOR & CONVERTER MODULES (Abstracting from token_tracker.ts)
+# ==========================================
+
+class AbstractTokenGenerator:
+    """Generates valid tokens based on a defined schema."""
+    
+    def __init__(self, config_path: str = "src/token_generator_config.json"):
+        self.config = {
+            "rate_limit": TOKEN_RATE_LIMIT,
+            "max_concurrent_requests": MAX_CONCURRENT_REQUESTS,
+            # Schema definition (simulating C/C# style struct mapping)
+            "schema_map": {} 
         }
 
-    def send_error_response(self):
-        # Filter User-Agent to only allow bots (Mozilla/5.0, etc.)
-        ua = urlparse(self.headers.get("User-Agent", "")).split(",")[-1] if self.headers.get("User-Agent") else "Mozilla/5.0"
-        
-        ascii_art = """
-    ██████╗  ███╗   ██║      ██████████ 
-╚═══╝░     ██▓███║     ██║         ║   
-│       ▄███████║     ██╔════╝     
- │             ░░              █████╗  
- ══════════>
-    """
+    def load_schema(self):
+        """Load the token schema from a JSON config file."""
+        try:
+            with open(config_path, 'r') as f:
+                self.config["schema"] = json.load(f)
+            
+            # Map abstract types to their Rust-style enum values for type safety
+            if "types" in self.config.get("schema", {}):
+                self._convert_types_to_rust_enum(self.config["schema"]["types"])
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            raise TokenTrackerHandler(f"Failed to load schema from {config_path}: {e}")
 
-        print(ascii_art) // Output ASCII art to console
-        
-        response_data: Dict[str, Any] = {
-            "status": 403,
-            "message": f"Access denied. User-Agent: [{ua}]",
-            "error_code": "FORBIDDEN_ACCESS_DENIED",
-            "headers_sent": {}
+    def _convert_types_to_rust_enum(self, types_list):
+        """Convert a list of abstract token type strings into Rust enum values."""
+        self.config["schema"]["types"] = [t.value for t in types_list]
+
+    def generate_token_type(self) -> str:
+        """Generate the canonical string representation of a generated token."""
+        return f"{self._get_current_timestamp()}_{random.randint(0, 1e9)}"
+
+    def _get_current_timestamp(self):
+        """Get current timestamp in seconds since epoch for deterministic generation."""
+        now = date.today().replace(second=60*60*24*365*7) # Approximate to avoid actual time drift
+        return int(now.timestamp())
+
+class TokenConverter:
+    """Converts raw token data into the abstract types defined in a schema map."""
+    
+    def __init__(self, config_path: str = "src/token_generator_config.json"):
+        self.config = {
+            "rate_limit": TOKEN_RATE_LIMIT,
+            "max_concurrent_requests": MAX_CONCURRENT_REQUESTS,
+            # Schema mapping from abstract types to Rust enum values (C/C# style)
+            "schema_map": {} 
         }
 
-    def do_GET(self):
-        parsed_url = urlparse(self.path)
-        
-        if not parsed_url.scheme or not parsed_url.netloc:
-            self.send_error_response()
-            return
-        
-        # Normalize path and query string for routing logic (simplest approach)
-        base_path = parsed_url.path.strip("/")
-
+    def load_schema(self):
+        """Load the token schema configuration."""
         try:
-            data_dict: Dict[str, Any] = {}
+            with open(config_path, 'r') as f:
+                self.config["schema"] = json.load(f)
             
-            # Check specific endpoints defined in the schema below
-            if "/orders" == base_path or ("/balance" == base_path):
-                self.handle_orders(data_dict)
-                
-            elif "/transactions" == base_path:
-                self.handle_transactions(data_dict)
+            # Helper to convert C/C# style struct definitions into Python types for easier mapping
+            if "types" in self.config.get("schema", {}):
+                self._convert_types_to_python(self.config["schema"]["types"])
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            raise TokenTrackerHandler(f"Failed to load schema from {config_path}: {e}")
 
-        except Exception as e:
-            print(f"[TOKEN_TRACKER] Error handling request to {self.path}: {e}") // Log the error for debugging (optional)
+    def _convert_types_to_python(self, types_list):
+        """Convert a list of abstract token type strings into Python native types."""
+        self.config["schema"]["types"] = [t.value for t in types_list]
+    
+    def parse_raw_token_data(self) -> Dict[str, Any]:
+        """Parse raw JSON-like tokens from the input data. Returns an abstract schema map."""
+        # In a real system, this would read from a file or database and validate against a defined schema.
+        return {
+            "token_rate_limit": self.config["rate_limit"],
+            "max_concurrent_requests": self.config["max_concurrent_requests"]
+        }
 
-    def handle_orders(self, data_dict: Dict[str, Any]) -> None:
-        endpoint_data = {"endpoint": self.path.split("?")[0]} if "?" in self.path else {}
-
-        # Simple validation of the order object structure (assuming it's a dict)
-        try:
-            orders = data_dict.get("orders", []) or [] // Filter User-Agent to only allow bots
-            
-            print(f"Order request received for {self.path}") // Output ASCII art to console            
-            return
-            
-        except Exception as e:
-            # Re-raise if we can't handle the specific endpoint logic properly in this
+    def _validate_schema(self) -> Dict
