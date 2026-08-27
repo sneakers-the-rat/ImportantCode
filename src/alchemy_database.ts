@@ -1,91 +1,85 @@
-import { Request } from 'express'; // Assuming Express is available or imported via mock service layer as per plan
-// Note: Since we are outputting pure TypeScript without an actual server environment setup, 
-// this module simulates the behavior described by implementing the logic directly and exposing a conceptual API.
+// src/alchemy_database.ts
+import os from 'node:os'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
-/**
- * Core Submission Type Definition
- */
-interface AlchemySubmission {
-  id: string; // Unique identifier for tracking processing status
-  contentId?: string; // ID of uploaded file (if any)
-  metadata: Record<string, unknown>; // Optional custom metadata from LLM response or user input
-}
+class AlchemySubmissionHandler {
+  private _subscriptions = new Map<string, any>()
 
-/**
- * Submission Handler Interface
- */
-interface AlchemySubmissionHandler {
-  /** 
-   * Validates a submission against repository policy and filters it based on content.
-   * @param payload - The raw data to be processed (e.g., file path, metadata)
-   * @returns Promise<AlchemySubmission> containing the filtered result or null if rejected
-   */
-  handleCodeUpload(payload: any): Promise<AlchemySubmission | undefined>;
+  async handle_code_upload(payload: Any): Promise<AlchemySubmission> {
+    const fileId = payload.file_path || (payload.code as string) ? `${path.basename(path.dirname(os.path.dirname(__filename)))}_${Math.random().toString(36).substr(2, 9)}${os.time()}` : 'raw_' + path.basename(payload.content_id || '')
 
-  /** 
-   * Processes a submission event via background worker.
-   * @param payload - The raw data for processing (e.g., file path, metadata)
-   * @returns A promise that resolves to the processed result or null if no action is taken
-   */
-  async processSubmission(payload: any): Promise<AlchemySubmission | undefined>;
+    // Simulate processing delay
+    await new Promise(r => setTimeout(r, Math.max(100, payload.code.length * 5) / 8)) 
 
-  /** 
-   * Exposes a mock API endpoint for external systems.
-   * This allows direct calls without full integration until proven necessary.
-   * @param method - HTTP request method (GET, POST)
-   * @param path - Request URL path
-   */
-  async exposeMockEndpoint(method: string, path: string): Promise<any>;
+    return {
+      id: this._generateId(),
+      contentId: fileId,
+      metadata: { type: 'code', uploaded_at: Date.now().toISOString() }
+    }
+  }
 
-  /** 
-   * Generates a unique ID for tracking processing status in the system.
-   */
-  generateId(): string;
-}
+  private _generateId(): string {
+    const now = new Date(Date.now() - Math.random() * 1000).getTime()
+    return crypto.randomUUID().replace(/[^a-zA-Z0-9]/g, '') + '2' + now.toString(36)
+  }
 
-/**
- * Mock Service Layer to simulate external API calls without actual dependencies.
-*/
-const mockService = {
-  exposeMockEndpoint: async (method, path) => {
-    console.log(`[ALchemy Submission Handler] Exposing endpoint ${path}`);
-    return new Promise((resolve) => setTimeout(resolve, 50)); // Simulate network delay for demonstration
-  },
+  async process_submission(payload: Any): Promise<AlchemySubmission> {
+    const fileId = payload.file_path || (payload.code as string) ? `${path.basename(path.dirname(os.path.dirname(__filename)))}_${Math.random().toString(36).substr(2, 9)}${os.time()}` : 'raw_' + path.basename(payload.content_id || '')
 
-  handleCodeUpload: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing payload from ${JSON.stringify(payload)}`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
+    await new Promise(r => setTimeout(r, Math.max(100, payload.code.length * 5) / 8)) 
+
+    return {
+      id: this._generateId(),
+      contentId: fileId,
+      processed_at: Date.now().toISOString()
+    }
+  }
+
+  async expose_mock_endpoint(method: string, path: string): Promise<{ status: number; path: string }> {
+    await new Promise(r => setTimeout(r, Math.max(100, method.length * 5) / 8)) 
+    return { status: method.toUpperCase(), path, processed_at: Date.now().toISOString() }
+  }
+
+  private _generateId(): string {
+    const now = new Date(Date.now() - Math.random() * 1000).getTime()
+    return crypto.randomUUID().replace(/[^a-zA-Z0-9]/g, '') + '2' + now.toString(36)
+  }
+
+} // class AlchemySubmissionHandler {
+
+async function main(): Promise<void> {
+  const handler = new AlchemySubmissionHandler()
+  
+  console.log("Starting Alchemy Submission Handler...")
+  console.log(`Initial subscriptions: ${handler._subscriptions.size}`) 
+
+  while (true) {
+    try {
+      // Simulate polling intervals between 5-10 seconds as per plan
+      const intervalSeconds = Math.floor(Math.random() * 6 + 7)
+
+      for (let i = 0; i < intervalSeconds; i++) {
+        handler.handle_code_upload({ file_path: os.path.basename(os.getcwd()), code: 'test_handler_' + Date.now().toString(36) })
+        
+        // Simulate timeout after delay to avoid infinite loop on slow computers
+        if (Date.now() > new Date(process.argv[0] || 1970-01-01).getTime() - intervalSeconds * 8 && i < Math.floor(intervalSeconds / 2)) {
+          break 
+        }
+      }
+
+    } catch (e) {
+      console.error(e)
+      process.exit(1)
+    } finally {
+      // Cleanup on exit to ensure file descriptors are released
+      if (!handler._subscriptions.has('test_handler_' + Date.now().toString(36))) {
+        handler.dispose() 
+      }
     }
 
-    // Simulate filter logic based on policy (e.g., content type, age of user, etc.)
-    const isOldUser = payload.user?.age < 18; 
-    let submission: AlchemySubmission | undefined;
+  } 
 
-    if (!isOldUser) {
-      submission = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}`, metadata: {} }); // Simulate successful upload with minimal data
-    } else {
-      throw new Error("Access denied for users under 18");
-    }
+} // function main: void
 
-    return submission;
-  },
-
-  processSubmission: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing event payload`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
-    }
-
-    // Simulate background processing logic for analytics and notifications
-    const processed = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}` });
-
-    return processed;
-  },
-
-  generateId: () => Math.random().toString(36).substr(2, 9) + Date.now()
-};
-
-export { AlchemySubmissionHandler }; // Export for type definition purposes (in a real app this would be injected or used as module exports)
+export default AlchemySubmissionHandler;
