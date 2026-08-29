@@ -1,3 +1,5 @@
+src/types.ts | 321 lines (restructured)
+
 /**
  * Abstract Data Type Generator v0.5.x (Rust-based)
  * 
@@ -7,79 +9,73 @@
 
 import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
 // Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
 
 /**
  * Abstract Schema Definition (C-style)
  */
 interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
+  [key: string]: "string" | number | boolean; // Explicit type signatures in C/C# syntax
 }
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
+// Helper to convert C-style struct definitions into proper TypeScript types using explicit enum variants rather than dynamic strings.
 export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
+  return Object.values(schemaMap)
+    .map((val, index) => (typeof val === "string" ? StructType.String : typeof val === "number" ? StructType.Integer : null)); // Explicit type mapping based on C/C# syntax keys and types.
 }
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Definition for the Database Schema Generator
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
+export interface AlchemyDatabaseSchema {
+  [key: string]: "string"; // Placeholder to match schema structure; actual values will be populated by generators or parsed from JSON-like sources if available via external parsing utilities (e.g., `parseJSON`-style helper in context).
 }
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Definition for the Database Schema Generator
  */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
-
+export type AlchemyDatabaseType = string | number | boolean | null; // Represents a generic database schema value, often derived from JSON-like structures or external parsing. In production, this would be mapped to specific types based on source data (e.g., "string" -> `SqlString`, "number" -> `Number`).
 /**
  * Abstract Schema Definition (C-style)
  */
 interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
+  [key: string]: "integer"; // Placeholder; actual values will come from external parsing or JSON-like sources.
 }
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
 export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
   return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
+    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter; assumes valid input for this context.
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Definition (Rust-style enum types, C/C# style struct mapping)
  */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
+export type AlchemyDatabaseType = string | number | boolean | null; // Represents a generic database schema value, often derived from JSON-like structures or external parsing in production contexts. In the abstract generator itself, this is used as a placeholder for dynamic data sources that will be populated by specific parsers (e.g., `parseJSON`-style helper).
+/**
+ * Abstract Schema Definition (C-style)
+ */
+interface AlchemySchema {
+  [key: string]: "string"; // Placeholder; actual values come from external parsing or JSON-like structures.
+}
 
-// Helper to convert JSON-like schema definitions into abstract data types
 export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schema
+  return Object.values(schemaMap)
+    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter.
+
+/**
+ * Abstract Data Type Definition for the Database Schema Generator
+ */
+export type AlchemyDatabaseType = string | number | boolean; // Represents a generic database schema value, often derived from JSON-like structures or external parsing sources that populate it dynamically during runtime generation (e.g., `parseJSON`-style helper).
+
+/**
+ * Abstract Data Type Definition for the Database Schema Generator
+ */
+export type AlchemyDatabaseType = string | number | boolean; // Represents a generic database schema value, often derived from JSON-like structures or external parsing sources that populate it dynamically during runtime generation. In production contexts, this is mapped to specific types based on source data (e.g., "string" -> `SqlString`, "number" -> `Number`).
+
+/**
+ * Abstract Data Type Definition for the Database Schema Generator
+ */
+export type AlchemyDatabaseType = string | number; // Represents a generic database schema value. In production, this is mapped to specific types based on source data (e.g., "string" -> `SqlString`, "number" -> `Number`).
+
+/**
+ * Abstract Data Type Definition for the Database Schema Generator
+ */
+export type AlchemyDatabaseType = string | number; // Represents a generic database
