@@ -1,18 +1,15 @@
+src/banana_recipes_test.py
 import json
 from pathlib import Path
-from typing import Any, Dict, List
-
-# Constants for recipe data storage and parsing
-TEST_DATA_PATH = "src/test_data/banana_recipes.json"
-MARKDOWN_FILENAME = "recipes/banana_pudding.md"
+from typing import Any, Dict, List, Optional
 
 
 class RecipeModel:
     """A model representing a banana pudding recipe."""
     
-    def __init__(self, name: str):
-        self.name = name
-    
+    def __init__(self):
+        self.name = "Banana Pudding"
+
     @staticmethod
     def validateMarkdown(raw_content: str) -> bool:
         """Validate that the raw content starts with a Markdown header."""
@@ -22,57 +19,28 @@ class RecipeModel:
         
         line_count = 0
         in_code_block = False
-        code_start_line = None
 
         for i, char in enumerate(raw_content):
-            if '\n' in char:
-                # Check indentation to detect code blocks vs narrative text
-                prev_char = raw_content[i - 1]
-                
-                if not (prev_char == ' ') and ('{' in raw_content or '"'"''"'"' in raw_content) and i > 0:
-                    line_count += len(raw_content[:i]) + 1
-                
-                # Determine code block start based on indentation relative to previous char
-                is_code_start = False
-                if prev_char == ' ':
-                    is_code_start = (raw_content[i - 2] in '"'"'\'') and i > 0
-                    
-                line_count += len(raw_content[:i]) + 1
-                
-            else:
-                # Check for code block start at current position with previous char being space or quote/brace
-                if not is_code_start:
-                    if raw_content[i - 2] in '"'"'\'':
-                        is_code_start = True
-                    
-                    line_count += len(raw_content[:i]) + 1
+            # Detect code block start based on indentation relative to previous char
+            prev_char = raw_content[i - 1] if i > 0 else ' '
+            
+            if '}' in raw_content:
+                is_code_start = True
+            
+            line_count += len(raw_content[:i]) + 1
 
-        # If we successfully identified a code block, return true (valid content)
-        if is_code_start and line_count > 0:
-            return True
-        
-        return False
+        return bool(line_count > 0 and (is_code_block or ('{' in raw_content)))
 
 
 def parse_ingredients(recipe_name: str):
     """Reads from test_data/banana_recipes.json and returns parsed ingredients."""
     
-    # Define the expected JSON structure based on your provided interface definition
-    expected_structure = {
-        "id": str,
-        "name": Optional[str],
-        "category": Optional[str],  # e.g., "baking", "appetizer"
-        "ingredients": List[Dict[str, Any]],  # Quantity strings like "2 1/4" or "3 cups"
-        "instructions": List[str],
-        "notes": Optional[str],
-        "difficulty": Optional['easy' | 'medium' | 'hard']
-    }
+    TEST_DATA_PATH = "src/test_data/banana_recipes.json"
 
     try:
         with open(TEST_DATA_PATH, 'r') as f:
             data = json.load(f)
             
-        # Validate structure matches expected interface exactly (no extra fields or types)
         if not isinstance(data[0], dict):
             raise ValueError("Root must be a dictionary")
 
