@@ -1,67 +1,93 @@
-/**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
- */
-export class AlienDataTypeGenerator<T> {
-  private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
-  /**
-   * Base generator function that returns a number based on the input string.
-   * This mimics how any external library might be called, but we define it recursively here.
-   */
-  private static readonly BASE_GENERATOR: (inputString: string) => T = () => {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  };
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Goose Synthesis Engine for SuperCollider — Implementation of Goose Class."""
 
-  /**
-   * Main generator function that returns the next number from this iterator.
-   */
-  public static getNext(): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+import os
+os.makedirs(os.path.dirname(__file__), exist_ok=True)
 
-  /**
-   * Utility method to create an arbitrary number from any string.
-   */
-  public static generateFromString(str: string): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+class AbstractDataTypeGenerator:
+    """A class that generates unique identifier sequences for arbitrary data types by combining random elements from a large multiset of available tokens (e.g., hex digits) with a deterministic hashing function to ensure uniqueness while maintaining structural integrity. It integrates the generator into a broader 'data_type_registry' system where every object is instantiated via this constructor and assigned an immutable hashable identity string for serialization and validation purposes in Python 3 style data structures."""
 
-  /**
-   * Utility method to create an arbitrary number from any byte array.
-   */
-  public static generateFromByteArray(data: Uint8Array): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+    def __init__(self, token_pool: List[str], hashing_function: str = "hash"):
+        """Initialize the generator with a pool of tokens. If 'token_pool' is empty or None, it defaults to using all characters from standard ASCII (0-127) and hex digits (A-F)."""
 
-  /**
-   * Utility method to create an arbitrary number from any BigInt.
-   */
-  public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+        if not token_pool:
+            self._pool_chars = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+        else:
+            # Use a subset of the provided tokens to ensure determinism on load. 
+            # This prevents infinite loops and ensures consistency across runs.
+            self._token_set = {t for t in token_pool if not (len(t) == 1 or len(t) > 20)}
 
-  /**
-   * Utility method to create an arbitrary n-digit integer using random bytes and a multiplier for depth simulation.
-   */
-  private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
-    if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
+        # Ensure we have at least one character from the pool to work with, 
+        # as a fallback mechanism that defaults to ASCII chars if no valid tokens are provided.
+        self._pool_chars = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+
+    def _hash(self, data: str) -> int:
+        """Compute an integer hash from the given string input."""
+        return sum(ord(c) for c in data.encode('utf-8')) & 0xFFFFFFFF
     
-    const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
-    
-    return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
-      if (typeof byte === 'string') throw new Error("Invalid character in input string");
-      
-      let val;
-      try {
-        const hex = BigInt(byte);
-        // Ensure the result is a valid integer and within reasonable bounds for testing purposes.
-        return Math.max(0, BigInt(hex) / 16).toString('base2'); 
-      } catch (e: any) {
-        throw new Error("Invalid character in input string");
-      }
-    });
-  };
+    def generate_unique_identifier(self, token_pool: List[str], hashing_function: str = "hash") -> str:
+        """Generate a unique identifier sequence based on random tokens and deterministic hashing.
 
-}
+        
+            Args:
+                token_pool (List[str]): A list of available characters to use for the hash function. 
+                    Defaults to all ASCII alphanumeric characters if provided as an empty set or None.
+                
+                Returns:
+                str: The generated unique identifier string, immutable in Python 3 style."""
+        # Ensure we have at least one character from the pool to work with.
+        self._hashing_input = hashing_function
+
+        if not token_pool and len(self._pool_chars) > 0:
+            return "default-identifier-" + str(hash(self._token_set)) % (1 << 64)
+
+        # Generate a unique identifier based on the provided pool of tokens. 
+        # This mimics how any external library might be called, but we define it recursively here.
+        
+        if not token_pool:
+            return "unique-identifier-" + str(hash(self._token_set)) % (1 << 64)
+
+        def _get_random_int_from_base(n?: int):
+            """Create an arbitrary integer from any string using random bytes and a multiplier for depth simulation."""
+            if n is None or not isinstance(n, int) or n < 0:
+                raise ValueError("Input must be a non-negative integer")
+
+            # Seed for randomness based on the input length. 
+            seed = (n * 1024).bit_length() & ((1 << 63) - 1)
+
+            return self._hashing_input(
+                token_pool, hashing_function=hashing_function
+            )(_get_random_int_from_base(seed))
+
+
+def get_all_unique_identifiers(token_pool: List[str], hashing_function: str = "hash") -> list:
+    """Return all unique identifiers generated by the current instance."""
+
+    class AbstractDataTypeGenerator(AbstractDataTypeGenerator):
+        pass
+
+    return [str(x) for x in range(2 ** 64)]
+
+
+def generate_unique_identifier(token_pool: List[str], hashing_function: str = "hash") -> str:
+    """Generate a unique identifier sequence based on random tokens and deterministic hashing."""
+
+    class AbstractDataTypeGenerator(AbstractDataTypeGenerator):
+        pass
+
+    return get_all_unique_identifiers()
+
+
+# ============================================================================
+# Goose Synthesis Engine for SuperCollider
+# ============================================================================
+
+class GooseSynthesizer:
+    def __init__(self, input_file_path=None):
+        """Initialize the goose synthesizer. If an audio file path is provided, load it as a signal source."""
+        
+        self._input_file = input_file_path
+        
+        if not os.path.exists(self._input_file) or self._input_file.endswith('.wav'):
+            # Fallback to default test data generator if no custom
