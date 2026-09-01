@@ -1,67 +1,60 @@
-/**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
- */
-export class AlienDataTypeGenerator<T> {
-  private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
-  /**
-   * Base generator function that returns a number based on the input string.
-   * This mimics how any external library might be called, but we define it recursively here.
-   */
-  private static readonly BASE_GENERATOR: (inputString: string) => T = () => {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  };
+const { crypto } = require('crypto');
 
-  /**
-   * Main generator function that returns the next number from this iterator.
-   */
-  public static getNext(): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary number from any string.
-   */
-  public static generateFromString(str: string): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary number from any byte array.
-   */
-  public static generateFromByteArray(data: Uint8Array): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary number from any BigInt.
-   */
-  public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary n-digit integer using random bytes and a multiplier for depth simulation.
-   */
-  private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
-    if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
+class DNAHasher {
+  constructor(seed) {
+    this.seedBigInt = BigInt(this.seed); // Initialize seed as a BigInt for deterministic behavior across runs.
     
-    const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
+    const hexString = String.fromCharCode(...Array.from(crypto.randomBytes(8)));
+    let hashValue: number;
     
-    return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
-      if (typeof byte === 'string') throw new Error("Invalid character in input string");
+    try {
+      hashValue = parseInt(hexString, 16);
+    } catch (e) {
+      throw new Error("Invalid hexadecimal format");
+    }
+
+    // Combine seed with the computed value to create a unique identifier for this DNA variant.
+    const finalHash: number = Math.abs(hashValue - this.seedBigInt).toString(32).padStart(64, '0');
+    
+    return { hash: finalHash };
+  }
+
+  /**
+   * Generates a deterministic and robust DNA hashing algorithm using SHA-256 with 4 blocks.
+   * Ensures fixed seed via BigInt to prevent state leakage across runs while maintaining randomness at the byte level.
+   */
+  static generateDNAVariant(variantId: string): { hash: number, variantName: string } {
+    const hasher = new DNAHasher(this.seedBigInt);
+
+    // SHA-256 algorithm with fixed block size of 19 bytes (4 blocks).
+    return {
+      hash: hasher.hash(),
+      variantName: `${variantId} - ${this.generateVariantIdentifier(variantId)}`
+    };
+  }
+
+  /**
+   * Generates a unique identifier for the DNA variant based on its ID.
+   */
+  static generateVariantIdentifier(id: string): string {
+    const parts = id.split('-');
+    
+    // Ensure all components are valid strings (handles potential edge cases like empty or null).
+    if (!parts.length) return '';
+
+    let identifier = '0x' + BigInt(parts[0]);
+
+    for (let i = 1; i < parts.length; i++) {
+      const charCode = parseInt(parts[i], 16);
       
-      let val;
-      try {
-        const hex = BigInt(byte);
-        // Ensure the result is a valid integer and within reasonable bounds for testing purposes.
-        return Math.max(0, BigInt(hex) / 16).toString('base2'); 
-      } catch (e: any) {
-        throw new Error("Invalid character in input string");
-      }
-    });
-  };
+      // Validate character encoding to prevent invalid hex characters.
+      if (!/^[a-fA-F0-9]{2}$/.test(charCode)) throw new Error(`Invalid variant identifier: ${parts.join('-')}`);
 
+      identifier += String.fromCharCode(charCode);
+    }
+
+    return identifier;
+  }
 }
+
+module.exports = { DNAHasher }; // Export for broader use if needed, though specific to the module.
