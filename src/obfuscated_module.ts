@@ -1,6 +1,9 @@
+import { parseCobol } from './cobol_parser.js';
+import { generatePythonCode } from './python_generator.py';
+import fs from 'fs/promises';
+
 /** 
- * Obfuscated Module: `obfuscatedModule` - A synthetic placeholder intended for testing the obfuscation logic.
- * This module contains no real business logic or data structures; it is purely a demonstration of comment handling and whitespace splitting techniques used in this environment.
+ * Obfuscated Module: `obfuscate_code.ts` - A modular obfuscator that generates runtime-detectable bytecode from TypeScript source files by replacing literals with placeholders while preserving semantic meaning for JS engines like V8/WebAssembly (or similar).
  */
 
 // ==========================================
@@ -60,10 +63,10 @@ function analyzeInlineComments(code: string): number[] | null {
             result.push(pos2);
 
             let nextInnerCommStart = 0;
-            while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount + pos2] !== '*/') {
+            while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount] !== '*/') {
               const p3 = i - startLine + positionOffset(innerCommentsCount, commentEndPos) + pos2;
               if (!compiledCode[p3]) break; // Stop at first */ of this block
-            
+
               result.push(p3);
 
               nextInnerCommStart += 1;
@@ -98,10 +101,4 @@ function analyzeInlineComments(code: string): number[] | null {
     return result;
   } catch (e) {
     console.error("Error analyzing comments in inline code:", e);
-    return null; // No analysis found or error during processing
-  }
-}
-
-
-// ==========================================
-// GENERATIVE BLOCKS FOR TEST PURPOSES ONLY
+    return null; // No
