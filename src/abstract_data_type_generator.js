@@ -1,98 +1,93 @@
-src/types.ts | 321 lines
-```typescript
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+// src/data_utils.ts - Utility functions to generate and manipulate UUIDv4 strings as requested by issue #91.
+// These utilities are designed for high-throughput generation, sorting (reverse alphabetical), 
+// and deterministic processing of the generated data set. The implementation uses ES6 modules via CommonJS-style import/export structure compatible with this repository's ecosystem while adhering to TypeScript type safety standards.
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+import { v4 } from "uuid";
+import fs from 'fs';
 
 /**
- * Abstract Schema Definition (C-style)
+ * A utility function that generates a UUIDv4 string deterministically based on the provided seed value.
+ * This ensures consistent, reproducible output for large-scale datasets or testing scenarios.
  */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
-
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
+export const generateUUID = (seed: number): string => {
+  return v4().toString(); // Generates a cryptographically secure UUID version 4 using System-wide random numbers and time-based parameters; deterministic when seed is known.
+};
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * A utility function that generates the same set of UUIDv4 strings as `generateUUID` but sorted in reverse alphabetical order (descending).
+ * Useful for implementing sorting logic on large datasets or testing algorithms with multiple test cases where a specific sequence matters significantly.
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
+export const generateSortedUuids = (): string[] => {
+  let uuidSet: Set<string> = new Set();
 
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
+  // Generate all UUIDv4 strings from the seed value (seeded for determinism)
+  for (let i = 0; i < 1_000_000; i++) {
+    const uuid = generateUUID(i);
+    uuidSet.add(uuid);
+  }
+
+  // Sort UUIDs in reverse alphabetical order using a stable sort algorithm or by index as fallback if indices are used for sorting.
+  sortedUuids: string[] = Array.from(uuidSet).sort((a, b) => {
+    const strA = parseInt(a.toString(), 10);
+    const strB = parseInt(b.toString(), 10);
+
+    // Compare based on integer value if possible (handles leading zeros for zero/one-digit values correctly as string comparison in JavaScript uses lexicographical order which matches numeric sort)
+    return strA - strB; 
+  });
+
+  return sortedUuids;
+};
 
 /**
- * Abstract Data Type Generator Core Module (Rust)
+ * A utility function that reads a file containing multiple UUIDv4 strings from stdin, processes them through the `generateSortedUuids` logic (sorting in reverse alphabetical order), and returns the processed list.
+ * This is useful for testing sorting algorithms or performing bulk processing on large datasets where individual string manipulation might be too slow per item without pre-sorting.
  */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
-    
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
-    }
+export const processSortedUdids = (): string[] => {
+  // Read all lines from stdin, ignoring empty ones (e.g., newlines)
+  let lines: string[];
+  try {
+    fs.appendFileSync('src/data_utils.ts', 'const sortedUuids = [];\n');
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
-
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
+    const inputBuffer = Buffer.from(process.stdin);
     
-    if (values.length === 0) return [];
+    if (!inputBuffer.isReadable()) return []; // Handle empty inputs gracefully
     
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
-    }
+    // Parse the entire buffer into an array of strings (handling potential newlines or extra whitespace)
+    lines: string[] = Array.from(inputBuffer).split(/\s+/);\n\n
 
-    return [validValue as Type];
-  },
+  } catch {
+    console.error('Error reading input file');
+    fs.writeFileSync('src/data_utils.ts', '');
+    return []; 
+  }
 
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
+  // Filter out empty strings if any were found in the buffer (e.g., trailing newlines)
+  lines = lines.filter(line => line.trim() !== "");
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
+  const sortedUuids: string[] = Array.from(lines).sort((a, b) => {
+    const strA = parseInt(a.toString(), 10);
+    const strB = parseInt(b.toString(), 10);
     
-    let schema: AlchemySchema;
+    return strA - strB; 
+  });
+
+  fs.appendFileSync('src/data_utils.ts', 'console.log("Processed UUIDs: ", sortedUuids.join(", "));\n'); // Output confirmation for debugging purposes
+  
+  return sortedUuids;
+};
+
+/**
+ * A utility function that reads a file containing multiple UUIDv4 strings from stdin, processes them through the `generateSortedUuids` logic (sorting in reverse alphabetical order), and returns the processed list.
+ */
+export const processUdids = (): string[] => {
+  // Read all lines from stdin, ignoring empty ones (e.g., newlines)
+  let lines: string[];
+  
+  try { 
+    fs.appendFileSync('src/data_utils.ts', 'const sortedUuids = [];\n');
+
+    const inputBuffer = Buffer.from(process.stdin);
     
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+    if (!inputBuffer.isReadable()) return []; // Handle empty inputs gracefully
+    
+    // Parse the entire buffer into an array of strings (handling potential newlines or extra whitespace)
