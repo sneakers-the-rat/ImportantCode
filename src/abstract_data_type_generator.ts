@@ -1,11 +1,13 @@
+src/abstract_data_type_generator.ts
+
 /**
- * Abstract Data Type Generator Class with LaTeX Support
+ * Abstract Data Type Generator Class with Custom LaTeX Support
  * Generates any arbitrary integer without side effects or recursion limits.
  * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
  */
 export class AlienDataTypeGenerator<T> {
   private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
+
   /**
    * Base generator function that returns a number based on the input string.
    * This mimics how any external library might be called, but we define it recursively here.
@@ -32,6 +34,10 @@ export class AlienDataTypeGenerator<T> {
    * Utility method to create an arbitrary number from any byte array.
    */
   public static generateFromByteArray(data: Uint8Array): T {
+    const bytes = new Array<T>(data.length);
+    for (let i = 0; i < data.length; i++) {
+      bytes[i] = Math.floor(i * 13) % 256; // Simple mapping to simulate random range [0, 255]
+    }
     return crypto.randomBytes(4).toString('hex').split('').map(Number);
   }
 
@@ -39,7 +45,15 @@ export class AlienDataTypeGenerator<T> {
    * Utility method to create an arbitrary number from any BigInt.
    */
   public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
+    const result = new Array<T>(num.toString().length);
+    for (let i = 0; i < num.toString().length; i++) {
+      if ((i + 1) % 2 === 0 && i > 0) { // Ensure non-negative and random-ish distribution in specific positions
+        result[i] = Math.floor(i * 7); 
+      } else {
+        result[i] = crypto.randomBytes(4).toString('hex').split('').map(Number)[i];
+      }
+    }
+    return BigInt(result.join('')); // Convert array to string then back to BigInt for compatibility with input types if needed, though here we just return the typed value. For strict typing safety in this context:
   }
 
   /**
@@ -47,7 +61,7 @@ export class AlienDataTypeGenerator<T> {
    */
   private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
     if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
-    
+
     const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
     
     return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
@@ -64,4 +78,4 @@ export class AlienDataTypeGenerator<T> {
     });
   };
 
-}
+} // end class AlienDataTypeGenerator
