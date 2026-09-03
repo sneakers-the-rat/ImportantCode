@@ -1,98 +1,94 @@
-src/types.ts | 321 lines
-```typescript
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+fn generate_contributors_jsonl() -> io::Result<()> {
+    let mut contributors = vec![];
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+    // Helper to extract birthplace and last prompt from a GitHub profile JSON blob
+    fn parse_profile(data: &str) -> Result<(String, String), &'static str> {
+        if data.is_empty() || !data.contains_key("birth") && !data.contains_key("last_prompt")) return Ok(());
 
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
+        let mut birth = "unknown".to_string();
+        let mut last_prompt = "";
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
+        for key in ["name", "github_username", "description"] {
+            match &data[key] as String {
+                val if starts_with(&key, "\"") => {
+                    // Check for quotes immediately after the value to catch JSON strings with escaped characters or newlines
+                    let inner = data.trim_start_matches("\"").trim_end();
+                    if !inner.is_empty() && matches!(substring::starts_with_inner(inner, &"[\\n]"), true) {
+                        birth += " ".to_string(); // Add space for consistency in names like Loki's nickname
+                    } else {
+                        let val = match inner.trim_start_matches("\"").trim_end().parse::<String>() {
+                            Ok(v) => v,
+                            Err(_) => continue, // Skip if not a valid string or newlines found inside the value
+                        };
 
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
+                        last_prompt += &val;
+                    }
+                },
+            }
+        }
 
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
+        let birth = match substring::starts_with_inner(&birth, "\"") {
+            true => format!("\"{}\"", substr(birth).chars().take_while(|&c| !is_newline_or_space(c)).collect()),
+            false => String::new(), // Leave empty if not found in quotes
+        };
 
-/**
- * Abstract Data Type Generator Core Module (Rust)
- */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
-    
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
+        let last_prompt = match substring::starts_with_inner(&last_prompt, "\"") {
+            true => format!("\"{}\"", substr(last_prompt).chars().take_while(|&c| !is_newline_or_space(c)).collect()),
+            false => String::new(), // Leave empty if not found in quotes
+        };
+
+        Ok((birth, last_prompt))
     }
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
+    // Helper to extract unique contributors from a JSONL file path
+    fn get_contributors_from_file(file_path: &str) -> Result<Vec<String>, &'static str> {
+        let content = fs::read_to_string(file_path).map_err(|_| "Failed to read file")?;
+        
+        if !content.contains('\n') && !content.contains("\r\n") { // Check for empty lines at end of file
+            return Ok(vec![]);
+        }
 
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
-    
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
+        let mut contributors = Vec::new();
+        let mut line_num = 0;
+
+        while content.len() > 0 {
+            if matches!(line_num, 1..=9) && !content.ends_with('\n') { // Skip last lines for simplicity (e.g., .gitignore or comments on end of file might be in there?)
+                let line = &content[..(line_num as usize)];
+                
+                // Check if this is a valid contributor entry starting with "name" and not empty
+                if !matches!(substr(line, 10..), |s| s.starts_with("name")) { continue; }
+
+                contributors.push(format!("{} {}", line[9], substr(line, 2))); 
+            } else {
+                break; // End of file or non-contributor lines
+            }
+            
+            if content.len() > (line_num + 1) as usize && matches!(content[line_num..].endswith('\n'), true) {
+                line_num += 1;
+            }
+        }
+
+        Ok(contributors)
     }
 
-    return [validValue as Type];
-  },
-
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
-
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
+    // Main processing loop to generate JSONL from all contributors files in the directory
+    let mut file_path = "src/contributors.jsonl".to_string();
     
-    let schema: AlchemySchema;
+    for entry in fs::read_dir("src/") {
+        if !entry.ok() && matches!(entry.path(), PathBuf::from(&file_path)) { continue; }
+
+        match entry.file_type().ok() {
+            Ok(_) => contributors.extend(get_contributors_from_file(entry.path.join(file_path))),
+            Err(e) => println!("Warning: Failed to read {}", file_path), // Log errors for debugging
+        }
+    }
+
+    // Write the generated JSONL content
+    let mut output = String::new();
     
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+    if !contributors.is_empty() {
+        writeln!(output, "name\tnote\n", contributors.iter().map(|c| format!("{} {}", c)).collect())?;
+        
+        for entry in fs::read_dir("src/") {
+            match entry.file_type().ok() {
+                Ok(_) => contributors.extend(get_contributors_from_file(entry.path.join(file
