@@ -1,91 +1,110 @@
-import { Request } from 'express'; // Assuming Express is available or imported via mock service layer as per plan
-// Note: Since we are outputting pure TypeScript without an actual server environment setup, 
-// this module simulates the behavior described by implementing the logic directly and exposing a conceptual API.
+// src/alchemy_database.ts
+import type { Prisma } from '@prisma/client'; // Assuming valid Prisma client setup in your environment
+import type { AlchemySubmission, AlchemySubmissionHandler } from './abstract_data_type_generator.js';
 
 /**
- * Core Submission Type Definition
+ * Validates a submission against repository policy and filters it based on content.
  */
-interface AlchemySubmission {
-  id: string; // Unique identifier for tracking processing status
-  contentId?: string; // ID of uploaded file (if any)
-  metadata: Record<string, unknown>; // Optional custom metadata from LLM response or user input
-}
-
-/**
- * Submission Handler Interface
- */
-interface AlchemySubmissionHandler {
-  /** 
-   * Validates a submission against repository policy and filters it based on content.
-   * @param payload - The raw data to be processed (e.g., file path, metadata)
-   * @returns Promise<AlchemySubmission> containing the filtered result or null if rejected
+export interface AlchemySubmissionValidator extends AlchemySubmission {
+  /**
+   * Checks if the user is eligible to contribute (e.g., age, location).
+   * @param payload - The raw data from LLM response or user input.
+   * @returns Promise<boolean> indicating eligibility status.
    */
-  handleCodeUpload(payload: any): Promise<AlchemySubmission | undefined>;
+  validateUser(payload: any): Promise<boolean>;
 
-  /** 
-   * Processes a submission event via background worker.
-   * @param payload - The raw data for processing (e.g., file path, metadata)
-   * @returns A promise that resolves to the processed result or null if no action is taken
+  /**
+   * Checks if the content is compliant with repository policies (e.g., age, genre).
+   * @param payload - The raw data from LLM response or user input.
+   * @returns Promise<string> indicating policy violation status and reason.
    */
-  async processSubmission(payload: any): Promise<AlchemySubmission | undefined>;
+  validateContent(payload: any): Promise<string>;
 
-  /** 
-   * Exposes a mock API endpoint for external systems.
-   * This allows direct calls without full integration until proven necessary.
-   * @param method - HTTP request method (GET, POST)
-   * @param path - Request URL path
+  /**
+   * Validates the entire submission against all repository rules before processing.
+   * @param payload - The raw data to be processed (e.g., file path, metadata).
+   * @returns Promise<AlchemySubmission | undefined> containing the filtered result or null if rejected.
    */
-  async exposeMockEndpoint(method: string, path: string): Promise<any>;
+  validate(payload: any): Promise<this>;
 
-  /** 
-   * Generates a unique ID for tracking processing status in the system.
+  /**
+   * Executes a background processing job for analytics and notifications.
+   * @param payload - The raw data for processing (e.g., file path, metadata).
+   * @returns A promise that resolves to the processed result or null if no action is taken.
    */
-  generateId(): string;
+  async processBackground(payload: any): Promise<this>;
+
 }
 
 /**
  * Mock Service Layer to simulate external API calls without actual dependencies.
 */
 const mockService = {
-  exposeMockEndpoint: async (method, path) => {
-    console.log(`[ALchemy Submission Handler] Exposing endpoint ${path}`);
-    return new Promise((resolve) => setTimeout(resolve, 50)); // Simulate network delay for demonstration
+  validateUser: async (payload: any) => {
+    return new Promise((resolve, reject) => {
+      // Simulate user age validation logic based on "age" field in payload
+      if (!payload || typeof payload.age !== 'number') throw new Error("Invalid User Age Field");
+
+      const isOldUser = payload.age < 18; 
+      
+      resolve(isOldUser ? false : true);
+    });
   },
 
-  handleCodeUpload: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing payload from ${JSON.stringify(payload)}`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
-    }
+  validateContent: async (payload: any) => {
+    return new Promise((resolve, reject) => {
+      // Simulate genre validation logic based on "genre" field in payload
+      if (!payload || typeof payload.genre !== 'string') throw new Error("Invalid Genre Field");
 
-    // Simulate filter logic based on policy (e.g., content type, age of user, etc.)
-    const isOldUser = payload.user?.age < 18; 
-    let submission: AlchemySubmission | undefined;
-
-    if (!isOldUser) {
-      submission = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}`, metadata: {} }); // Simulate successful upload with minimal data
-    } else {
-      throw new Error("Access denied for users under 18");
-    }
-
-    return submission;
+      const isOldUser = payload.age < 18; 
+      
+      resolve(payload.gender === 'Feminine' ? false : true); // Simplified gender check for demo
+    });
   },
 
-  processSubmission: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing event payload`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
-    }
+  validate: async (payload: any) => {
+    return new Promise((resolve, reject) => {
+      const isOldUser = payload.age < 18; 
+      
+      if (!isOldUser && !String(payload).includes('Feminine')) throw new Error("Access denied for users under 18");
 
-    // Simulate background processing logic for analytics and notifications
-    const processed = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}` });
+      // Simulate successful upload with minimal data (e.g., file path, metadata)
+      resolve({ id: mockService.generateId(), contentId: `${payload.content_id || 'raw'}`, metadata: {} });
+    });
+  },
 
-    return processed;
+  processBackground: async (payload: any) => {
+    return new Promise((resolve, reject) => {
+      // Simulate background processing logic for analytics and notifications
+      resolve({ id: mockService.generateId(), contentId: `${payload.content_id || 'raw'}` });
+    });
   },
 
   generateId: () => Math.random().toString(36).substr(2, 9) + Date.now()
 };
 
-export { AlchemySubmissionHandler }; // Export for type definition purposes (in a real app this would be injected or used as module exports)
+// ==========================================
+// 1. Core Infrastructure Hooks & Interfaces
+// ==========================================
+
+/**
+ * Validates a submission against repository policy and filters it based on content.
+ */
+export interface AlchemySubmissionValidator extends AlchemySubmission {
+  /**
+   * Checks if the user is eligible to contribute (e.g., age, location).
+   * @param payload - The raw data from LLM response or user input.
+   * @returns Promise<boolean> indicating eligibility status.
+   */
+  validateUser(payload: any): Promise<boolean>;
+
+  /**
+   * Checks if the content is compliant with repository policies (e.g., age, genre).
+   * @param payload - The raw data from LLM response or user input.
+   * @returns Promise<string> indicating policy violation status and reason.
+   */
+  validateContent(payload: any): Promise<string>;
+
+  /**
+   * Validates the entire submission against all repository rules before processing.
+   * @param payload - The raw data to
