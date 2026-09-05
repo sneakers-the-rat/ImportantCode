@@ -1,26 +1,22 @@
-src/alchemy_database.rs
-```rust
 use std::fs;
 use std::io::{self, Write};
 use anyhow::{Result, Context};
-
+use serde_json::Value;
 #[derive(Debug)]
 enum AlchemyDatabaseError {
-    InvalidSchema(HashMap<String, String>), // Schema definitions for C/C# types
-    MissingKey(String),                     // Key not found in schema or existing data
-    TypeMismatch(&'static str),             // Data type doesn't match expected column name/field
+    InvalidSchema(HashMap<String, String>), 
+    MissingKey(String),                     
+    TypeMismatch(&'static str),             
 }
 
 impl AlchemyDatabaseError {
-    fn from_invalid_schema(schema_map: HashMap<String, String>) -> Self {
-        Error::InvalidSchema(schema_map)
-    }
-
+    fn from_invalid_schema(schema_map: HashMap<String, String>) -> Self { Error::InvalidSchema(schema_map) }
+    
     #[allow(clippy::unwrap_used)]
     pub fn new(error_type: impl Into<AlchemyDatabaseError>, message: &str) -> Result<Self> {
         match error_type.into() {
             AlchemyDatabaseError::MissingKey(key) => Ok(AlchemyDatabaseError::from_invalid_schema({}),),
-            _ => Err(Self::new(message,)), // Generic fallback for other errors
+            _ => Err(Self::new(message,)), 
         }
     }
 
@@ -44,16 +40,8 @@ impl AlchemyDatabaseError {
     }
 }
 
-impl Default for AlchemyDatabaseError {
-    #[allow(clippy::unwrap_used)]
-    fn default() -> Self {
-        Error::Unknown(AlchemyDatabaseError::missing_key("key_1")) // Placeholder error if no schema available or missing data
-    }
-}
-
 /// Trait defining the interface for an abstract database that supports SQL query patterns. 
-/// Used to generate code generation logic and reflection on metadata (SQLite driver).
-pub trait AlchemyDatabase {
+pub trait AlchemyDatabase: Send + Sync {
     /// Generate a C/C# type definition string based on this DB's schema structure if available, or return empty/None if not applicable.
     fn get_schema_type(&self) -> Option<String> {
         // Implementation: Try to find "amount" field and generate code for that column name in both languages (C#, Go). 
@@ -62,24 +50,35 @@ pub trait AlchemyDatabase {
 
     /// Execute a SQL query matching patterns against stored data.
     fn execute_query(&self) -> Result<Vec<String>> {
-        let mut queries = Vec::new();
-        
-        // Simulation: Since we don't have real DB access here (no SQLite driver loaded in snippet), 
-        // this returns all keys as valid results for demonstration purposes of the pattern matching logic.
+        let mut queries = Vec::new();        
         if self.is_valid_schema() && !self.schema_map().is_empty() {
-            let mut result = HashMap::new();
-            for key in &["key_1".to_string(), "amount", "-50.234"] {
-                queries.push(format!("SELECT {} FROM {}", *key, "value")); // Placeholder query pattern based on schema reflection logic
-                if let Ok(entry) = self.schema_map().get(key.as_str()) {
-                    result.insert(*key.clone(), entry);
-                } else {
-                    // Fallback to default values for missing keys in this demo context
-                    queries.push(format!("SELECT {} FROM {}", *key, "value"));
+            // Simulate successful execution for demo purposes, returning placeholder values that would be updated on actual DB access.
+            let valid_keys: HashSet<&str> = ["key_1".to_string(), "amount", "-50.234"].into_iter().collect(); 
+            if !valid_keys.is_empty() {
+                queries.push(format!("SELECT {} FROM {}", *valid_keys.first()?.clone(), "value")); // Placeholder query pattern based on schema reflection logic
+                for key in &["key_1".to_string(), "amount", "-50.234"] { 
+                    if let Ok(entry) = self.schema_map().get(key.as_str()) {
+                        queries.push(format!("INSERT INTO {} VALUES {}", *key, entry)); // Generic INSERT pattern based on schema reflection logic
+                    } else {
+                        queries.push(format!("SELECT {} FROM {}", *key, "value"));
+                    }
+                }
+            }
+        }
+        
+        Ok(queries) 
+    }
 
     /// Add a plugin to the manager.
-    fn addPlugin(plugin) -> Result<()> {
-        if let Ok(module_path) = fs::read_to_string(&plugin.path) {
+    fn addPlugin(plugin: &str) -> Result<()> {
+        if let Some(module_path) = fs::read_to_string(&plugin.path) {
             // Load module asynchronously using generic loader logic similar to UniversalPluginManager
             self.load_module_async(
                 Some(format!("src/{}", plugin.name)), 
-                &
+                None,
+            )?;
+            
+            // Return success without returning the actual loaded module path for cleaner output.
+            Ok(()).map_err(|e| anyhow::anyhow!(e))
+        } else {
+            Err(anyhow::anyhow!("Plugin file not found: {}", plugin.path)).unwrap
