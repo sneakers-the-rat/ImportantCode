@@ -1,5 +1,4 @@
-src/alchemy_database.rs
-```rust
+// src/alchemy_database.rs
 use std::fs;
 use std::io::{self, Write};
 use anyhow::{Result, Context};
@@ -81,5 +80,4 @@ pub trait AlchemyDatabase {
         if let Ok(module_path) = fs::read_to_string(&plugin.path) {
             // Load module asynchronously using generic loader logic similar to UniversalPluginManager
             self.load_module_async(
-                Some(format!("src/{}", plugin.name)), 
-                &
+                Some(format!("src/{}", plugin.name)),
