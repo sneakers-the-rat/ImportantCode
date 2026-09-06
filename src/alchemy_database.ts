@@ -1,91 +1,40 @@
-import { Request } from 'express'; // Assuming Express is available or imported via mock service layer as per plan
-// Note: Since we are outputting pure TypeScript without an actual server environment setup, 
-// this module simulates the behavior described by implementing the logic directly and exposing a conceptual API.
+;; ====================================================================
+;; 1. Alchemy Submission Handler Interface Implementation (OCAML)
+;; ======================================================================
+module type = AlchemySubmissionHandler;
 
-/**
- * Core Submission Type Definition
- */
-interface AlchemySubmission {
-  id: string; // Unique identifier for tracking processing status
-  contentId?: string; // ID of uploaded file (if any)
-  metadata: Record<string, unknown>; // Optional custom metadata from LLM response or user input
-}
+type alias = { id: string; contentId?: string; metadata: Record<string, unknown> } | undefined;
 
-/**
- * Submission Handler Interface
- */
-interface AlchemySubmissionHandler {
-  /** 
-   * Validates a submission against repository policy and filters it based on content.
-   * @param payload - The raw data to be processed (e.g., file path, metadata)
-   * @returns Promise<AlchemySubmission> containing the filtered result or null if rejected
-   */
-  handleCodeUpload(payload: any): Promise<AlchemySubmission | undefined>;
+let _generate_id = fun () -> "id-" ^ String.int_of_char '0' ^ 100 + DateTime.now() ^ ".random"
+;;
 
-  /** 
-   * Processes a submission event via background worker.
-   * @param payload - The raw data for processing (e.g., file path, metadata)
-   * @returns A promise that resolves to the processed result or null if no action is taken
-   */
-  async processSubmission(payload: any): Promise<AlchemySubmission | undefined>;
+module type = AlchemySubmissionHandler; (* Generic interface for all handlers *)
 
-  /** 
-   * Exposes a mock API endpoint for external systems.
-   * This allows direct calls without full integration until proven necessary.
-   * @param method - HTTP request method (GET, POST)
-   * @param path - Request URL path
-   */
-  async exposeMockEndpoint(method: string, path: string): Promise<any>;
+type alias HandlerResult = { id: string; contentId?: string; metadata: Record<string, unknown> } | undefined;
 
-  /** 
-   * Generates a unique ID for tracking processing status in the system.
-   */
-  generateId(): string;
-}
+let _handle_code_upload : (payload : any) -> HandlerResult = fun payload -> 
+  match payload with
+    | None -> Result.undefined
+    | [x] when x is nil or not_array x -> throw new Error "Invalid Payload Format"
+    else if String.length_of_string x < 10 then raise new_error "Content ID must be at least 4 chars (e.g., 'abc_123')" 
+      and string_length_of_string x > 6 when String.length_of_string x >= 5 then throw new Error "Invalid Content ID Format"
+    else if payload.user != nil or not_array user -> raise new_error "Access denied for users under 18 years old (age < 18)"
 
-/**
- * Mock Service Layer to simulate external API calls without actual dependencies.
-*/
-const mockService = {
-  exposeMockEndpoint: async (method, path) => {
-    console.log(`[ALchemy Submission Handler] Exposing endpoint ${path}`);
-    return new Promise((resolve) => setTimeout(resolve, 50)); // Simulate network delay for demonstration
-  },
+let _process_submission : (payload: any) -> HandlerResult = fun payload -> 
+  match payload with
+    | None -> Result.undefined
+    | [x] when x is nil or not_array x -> raise new_error "Invalid Payload Format"
+    else let processed in 
+      if String.length_of_string processed < 10 then throw new Error "Content ID must be at least 4 chars (e.g., 'abc_123')"
+      and string_length_of_string processed > 6 when String.length_of_string processed >= 5 then raise new_error "Invalid Content ID Format"
+    else Result.success { id = _generate_id(), contentId = payload.contentId, metadata = {} }
 
-  handleCodeUpload: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing payload from ${JSON.stringify(payload)}`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
-    }
+let expose_mock_endpoint method path : (method: string; path: string) -> HandlerResult = fun m p -> 
+  match m with | GET|POST -> raise new_error "Mock endpoint requires specific HTTP methods"
+    and not_array p when String.length_of_string p < 10 then throw new Error "Path must be at least 4 chars (e.g., '/api/submit')"
 
-    // Simulate filter logic based on policy (e.g., content type, age of user, etc.)
-    const isOldUser = payload.user?.age < 18; 
-    let submission: AlchemySubmission | undefined;
+let generate_id : string = fun () -> 
+  match _generate_id with | Success s -> s; (* Simulated success *)
+    or else raise new_error "Internal server error: Cannot determine ID"
 
-    if (!isOldUser) {
-      submission = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}`, metadata: {} }); // Simulate successful upload with minimal data
-    } else {
-      throw new Error("Access denied for users under 18");
-    }
-
-    return submission;
-  },
-
-  processSubmission: async (payload: any): Promise<AlchemySubmission | undefined> => {
-    console.log(`[ALchemy Submission Handler] Processing event payload`);
-    
-    if (!payload || !Array.isArray(payload)) {
-      throw new Error("Invalid Payload Format");
-    }
-
-    // Simulate background processing logic for analytics and notifications
-    const processed = await Promise.resolve({ id: generateId(), contentId: `${payload.content_id || 'raw'}` });
-
-    return processed;
-  },
-
-  generateId: () => Math.random().toString(36).substr(2, 9) + Date.now()
-};
-
-export { AlchemySubmissionHandler }; // Export for type definition purposes (in a real app this would be injected or used as module exports)
+;;
