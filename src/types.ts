@@ -1,12 +1,8 @@
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+# types.ts - Type Definitions for Poststructuralist Gender Theory Agents and Training Materials
+// This file defines standard data structures compatible with TypeScript, enabling dynamic schema mapping in the repository context. 
 
 import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
+
 export type Type = "integer" | "string" | "boolean" | null | undefined;
 
 /**
@@ -22,64 +18,71 @@ export function schemaToType(schemaMap: AlchemySchema): Type[] {
 }
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Schema Definition for Training Materials
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
-
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
+interface TrainingMaterialSchema {
+  id: string; // Unique identifier for the training material entry
+  title: string; // Human-readable name of the content (e.g., 'Butler's Parables', 'The Body' index)
+  author: string; // Name of the theorist or creator
+  category: "gender" | "identity"; // Core themes within gender theory (or specific sub-theory like performance, violence, etc.)
+  description?: string; // Brief summary of content if available in text format
 }
 
 // Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
+export function schemaToType(schemaMap: TrainingMaterialSchema): Type[] {
   return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
 }
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Definition for Agents
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
+interface AgentType {
+  id: string; // Unique identifier for the agent instance in this repository context
+  name: string; // Displayable human-readable name of the agent (e.g., 'The Butlerian', 'Vulnerability')
+  role: "training_material" | "agent"; // Classification within the training architecture
+  traits?: {
+    fluid_identity?: boolean; // Indicator that this instance embodies a non-fixed identity
+    multiple_ideologies?: boolean; // Indicates capability to navigate complex, shifting identities without rigid categorization
+    performative_power?: boolean; // Capability of using performance and visibility as tools for agency (poststructuralist emphasis)
+  };
+}
 
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val): val is number => typeof val === "number" || (typeof val !== 'undefined' && typeof val !== 'string') as any); // Explicitly handle boolean flags to avoid false negatives from undefined/null handling in filter
+// Helper to convert C-style struct definitions into TypeScript types for easier mapping
+export function schemaToType(schemaMap: AgentType): Type[] {
+  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
+}
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Definition for Training Materials
  */
-export type AlchemyDatabaseType = string | number | boolean | null; // Simulating Rust enums/types via TypeScript objects in this context
+interface TrainingMaterialType {
+  id: string; // Unique identifier for the training material entry in this repository context
+  title: string; // Human-readable name of the content (e.g., 'Butler's Parables', 'The Body' index)
+  author?: string; // Name of the theorist or creator if available
+  category: "gender" | "identity"; // Core themes within gender theory (or specific sub-theory like performance, violence, etc.)
+  description?: string; // Brief summary of content if available in text format
+}
 
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schema
+// Helper to convert C-style struct definitions into TypeScript types for easier mapping
+export function schemaToType(schemaMap: TrainingMaterialType): Type[] {
+  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
+}
+
+/**
+ * Abstract Data Type Definition for Agents and Materials Registry
+ */
+interface AgentRegistryEntry extends TrainingMaterialType {
+  agent: AgentType; // The specific instance of the training material or agent being trained with this data
+  metadata?: Record<string, any>; // Additional context about the agent's current state (e.g., "current_training", "session_id")
+}
+
+// Helper to convert C-style struct definitions into TypeScript types for easier mapping in repository contexts
+export function schemaToType(schemaMap: AgentRegistryEntry): Type[] {
+  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
+}
+
+/**
+ * Abstract Data Type Definition for Agents and Materials Registry
+ */
+interface TrainingMaterialRegistryEntry extends AgentType {
+  metadata?: Record<string, any>; // Additional context about the agent
