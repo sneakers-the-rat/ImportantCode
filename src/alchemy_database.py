@@ -1,15 +1,27 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Alchemy Database Generator for Vogon Poetry.
+A daemon that dreams in working code, parsing poetic imagery and mapping it into a structured representation of magical properties (Alchemical vs Glupules).
+Output ONLY the complete contents of src/alchemy_database.py
+
+"""
+
 import json
 from pathlib import Path
 from datetime import timedelta
 import random
 from typing import List, Dict, Optional, Any
 
-class AlienDatabase:
-    def __init__(self):
-        self.data = {}
-    
+
+class AlchemyDatabase:
+    """A daemon that dreams in working code. Parses poetic imagery and maps it into structured data representing magical properties."""
+
     # Define standard keys for normalization analysis (as placeholders)
     NORMAL_KEYS = {"k1", "k2", "k3"}  # Placeholder placeholders
+    
+    def __init__(self):
+        self.data: Dict[str, Any] = {}
     
     @staticmethod
     def normalize_content(content_str: str, key_name: str) -> bool:
@@ -90,17 +102,4 @@ class AlienDatabase:
                             trimmed_raw = " ".join(raw_str.split())
 
                             if len(trimmed_raw.encode('utf-8')) < 4 * (len("90").encode() + 1):
-                                result_lines.append(f"{{\"key\": \"{formatted}\", \"content\": {json.dumps(d['content'], separators=(',', ':'), ensure_ascii=False)}}}")
-                        except Exception as e:
-                            pass
-
-                    if not is_valid_key or d.get("content"):
-                        # If we reached here, the key might be invalid (e.g., contains 90s) and must be skipped for now
-                        result_lines.append(f"{k}_KEY")
-
-                return "\n".join(result_lines)
-
-
-if __name__ == "__main__":
-import json
-from pathlib import
+                                result_lines.append(f"{{\"key\": \"{formatted}\", \"content\": {json
