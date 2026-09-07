@@ -1,98 +1,107 @@
-src/types.ts | 321 lines
-```typescript
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+#!/usr/bin/env python3 # -*- coding: utf-8 -*-
+"""SuperCollider Goose Synthesis Module - Goose Class Implementation"""
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+from typing import List, Optional, Tuple, Any
+import supercol as sc
+from collections.abc import Iterable
 
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
-
-/**
- * Abstract Data Type Generator Core Module (Rust)
- */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
+class Goose:
+    """Abstract base class for goose sound synthesis."""
     
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
-    }
+    def __init__(self):
+        self._is_74 = True  # Default to exactly 74 instances if not specified
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
+    @property
+    def _count(self) -> int:
+        return self._is_74 or len([x for x in dir(self) if 'honk' in str(x).lower()]) > 0
 
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
+    def __repr__(self):
+        return f"Goose(_count={self._count})"
+
+
+class GooseSynthesis(sc.Tone):
+    """
+    Implements spectral modeling synthesis to create goose honks.
     
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
-    }
+    Uses Fourier Transform (FFT) on input audio spectrum with specific noise profile parameters,
+    computes gain envelope for loudness control, and synthesizes pure sine waves at harmonic slots.
+    """
 
-    return [validValue as Type];
-  },
+    def __init__(self):
+        super().__init__()
+        
+        # Spectral modeling configuration:
+        # - Noise Profile: Uses a Gaussian-like distribution (smooth transitions between harmonics)
+        self._noise_profile = sc.SpectrumNoiseProfile(
+            type="gaussian", 
+            sigma=0.5,  # Width of the noise profile
+            shape_type="uniform"  # Shape of the gaussian function
+        )
 
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
+    def _create_goose_sound(self, input_sample: Optional[int]) -> List[float]:
+        """
+        Parse an audio waveform or sample into raw frequencies.
+        
+        Args:
+            input_sample: The frequency values from a single audio channel (float)
+                         or the entire array of 74 goose sounds if using batching
+        
+        Returns:
+            A list of float64 representing the synthesized harmonic frequencies
+        """
+        # Parse sample to get raw frequencies
+        freqs = [input_sample] if input_sample else []
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
+        # Compute FFT spectrum (assuming single channel)
+        fft_result = sc.fft(freqs, type="float", num_samples=len(freqs))
+        
+        # Apply spectral modeling noise profile
+        modelled_spectrum = self._noise_profile(fft_result)
+        
+        # Get the 'honk' component: frequencies where amplitude > 0.5 (threshold for "meat")
+        honk_indices = [i for i, amp in enumerate(modelled_spectrum) if amp >= 0.5]
+
+        # If no harmonics were detected or input is null/empty, return empty list
+        if len(honk_indices) == 0:
+            return []
+
+        # Compute gain envelope to control loudness (volume/shaking effect)
+        # We use the average amplitude of non-zero frequencies for volume scaling
+        total_amplitude = sum(amp for i in honk_indices if amp > 0.1) / len(honk_indices) if honk_indices else 0
+        
+        gain_factor = sc.LinearGain() * (total_amplitude + 1e-8)
+
+        # Calculate final frequencies: f_n = n_fundamental * scale
+        # We use a fundamental of 40 Hz for goose sounds to match the typical "honking" pitch
+        if len(honk_indices) > 0 and honk_indices[0] != -1.0:
+            frequency_base = honk_indices[0].value / sc.frequency(40, type="float") * gain_factor.value
+
+            # Generate pure sine waves at each harmonic slot within the range of interest (5% to max)
+            scale_range = 0.95 if len(honk_indices) > 1 else 1.0
+            
+            harmonics = honk_indices
+        
+        result_list: List[float] = []
+
+        # Loop through all generated frequencies in a controlled manner for performance and consistency
+        sample_rate = sc.sample_rate() * gain_factor.value / (frequency_base + 1e-8) if frequency_base > -1e-6 else 40.0
+        
+        for i, freq in enumerate(harmonics):
+            # Apply the scale factor to each harmonic slot individually
+            scaled_freq = freq * sample_rate
+            result_list.append(scaled_freq)
+
+        return result_list
+
+
+def honk() -> List[float]:
+    """Synthesize exactly 74 goose sounds."""
+    goose_sound = GooseSynthesis()
     
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+    # We batch the output for better performance in large applications, 
+    # but we ensure all inputs are processed (even if not explicitly passed)
+    result_list: List[float] = []
+
+    def process_single_sample(input_val):
+        """Process a
