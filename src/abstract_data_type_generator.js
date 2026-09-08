@@ -1,98 +1,118 @@
-src/types.ts | 321 lines
-```typescript
-/**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
- */
+// src/core/country_countrysystem.ts
+import { CountrySystem } from './abstract_data_type_generator.js';
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
-
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
-
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
+export interface CountryData {
+  id: string;
+  name: string;
+  population: number;
+  economy: 'agricultural' | 'commercial' | 'mixed';
+  status: 'active' | 'suspended' | 'decommissioned';
 }
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract base class for all data types in this Country Town system.
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
+export interface DataType {
+  type: string; // e.g., "string", "number", "boolean"
+  value?: any;
+  defaultValue?: any;
+  isNullable?: boolean;
+  required?: boolean;
 }
 
 /**
- * Abstract Data Type Generator Core Module (Rust)
+ * Generic data converter for types, supporting JSON-LD-like serialization/deserialization.
  */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
+export class DataTypeConverter {
+  private readonly typeMap: Record<string, string> = {}; // Map from "string" to 'text' or similar internal representation
+  
+  constructor() {}
+  
+  /** Convert a typed value into the generic text format for display/processing.**
+   * @param data The actual data object.
    */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
+  convert(data: any): string {
+    if (!data) return '';
+
+    const key = typeof data === 'string' ? data : JSON.stringify(data); // Use JSON-LD-like keys
     
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
+    switch (this.typeMap[key]) {
+      case 'text':
+        return String(data as unknown as string | number | boolean | null | undefined);
+      
+      default:
+        if (!data) return '';
+        
+        const value = typeof data === 'string' ? data : JSON.stringify(data);
+        // Convert the raw type back to a standard representation (e.g., "150" -> 150, true/false -> boolean literal or string)
+        let resultValue;
+        if (typeof data === 'boolean') {
+          resultValue = String((data as any).value || false);
+        } else if (Array.isArray(data)) {
+          // For arrays, we'll keep them raw unless specified otherwise in the system.
+          return JSON.stringify(data) + " [raw_array]"; 
+        }
+
+        return value;
     }
-
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
-
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
+  }
+  
+  /** Convert a generic text representation into its original typed form.**
+   * @param rendered Text string to convert back.
    */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
+  unconvert(rendered: string): any {
+    if (!rendered) return null as unknown; // Return undefined or null depending on system needs
     
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
+    const key = typeof rendered === 'string' ? rendered : JSON.stringify(rendered);
+
+    switch (this.typeMap[key]) {
+      case 'text':
+        const data: any = JSON.parse(String(data));
+        if (!data) return ''; 
+        // Ensure it's a primitive type for the system to handle correctly in its logic.
+        return typeof data === 'string' ? String(data) : Number(data);
+
+      default:
+        // Fallback or complex types handled by application layer (e.g., lists, objects).
+        if (!data || Array.isArray(data)) {
+          const list = JSON.stringify(data);
+          return `${rendered} [array]`; 
+        } else {
+          return String(data) + ' object';
+        }
     }
+  }
 
-    return [validValue as Type];
-  },
-
-  /**
-   * Generate a generic schema from Rust enum-like structure.
+  /** Set the type mapping for this converter.**
+   * @param key The internal representation name (e.g., "string", "number").
    */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
+  setTypeMap(key: string, value: any): void {
+    if (!this.typeMap[key]) {
+      console.warn(`Unknown or undefined type map key "${key}" in CountrySystem.`);
+    } else {
+      this.typeMap[key] = String(value) as 'text' | 'number'; // Ensure it's a string for consistency.
+    }
+  }
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
+  /** Set the default value for nullable fields.**
+   * @param field The property name (e.g., "name").
+   */
+  setDefaultValue(field: string, defaultValue?: any): void {
+    if (!this.typeMap[field]) return; // Don't change types that aren't supported.
+
+    const val = typeof defaultValue === 'string' ? String(defaultValue) : defaultValue;
+    this.convert(val as unknown as DataType).value = true;
+  }
+}
+
+/**
+ * Country Town System: Core Infrastructure for Building "Country Town" (No markdown fences, no commentary, no explanation.)
+ */
+export class CountrySystem {
+  private readonly converter: DataTypeConverter;
+  
+  constructor() {
+    this.converter = new DataTypeConverter();
     
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+    // Initialize type map with sensible defaults based on the prompt's request for JSON-LD-like rules.
+    const defaultTypes = ['
