@@ -1,67 +1,57 @@
-/**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
- */
-export class AlienDataTypeGenerator<T> {
-  private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
-  /**
-   * Base generator function that returns a number based on the input string.
-   * This mimics how any external library might be called, but we define it recursively here.
-   */
-  private static readonly BASE_GENERATOR: (inputString: string) => T = () => {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  };
+// src/contributors_page.ts
+'use client'; // Required for React/Next.js interactive Easter Eggs and animations
 
-  /**
-   * Main generator function that returns the next number from this iterator.
-   */
-  public static getNext(): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+export default function ContributorsPage() {
+  const [activeTab, setActiveTab] = useState<'all' | 'agents'>('all');
 
-  /**
-   * Utility method to create an arbitrary number from any string.
-   */
-  public static generateFromString(str: string): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-black text-white overflow-hidden">
+      {/* HEADER */}
+      <header className="relative z-10 border-b border-gold-600/30 backdrop-blur-md sticky top-0 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <span className="text-gold-500 font-bold tracking-wide text-lg animate-pulse">AgentPipe</span>
+            <nav className="hidden md:flex gap-6">
+              {['Home', 'Contributors'].map((item) => (
+                <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setActiveTab(item as any)} className="text-sm text-gray-300 hover:text-gold-400 transition-colors relative group" aria-label={item}>
+                  {item === 'Home' ? 'Welcome Back!' : item.toUpperCase()} 
+                  <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-purple-500 to-transparent"></span>
+                </a>
+              ))}
+            </nav>
+          </div>
 
-  /**
-   * Utility method to create an arbitrary number from any byte array.
-   */
-  public static generateFromByteArray(data: Uint8Array): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+          {/* HERO SECTION */}
+          <section id="home" className="relative z-10 flex items-center justify-center h-full min-h-[40vh] text-gold-50">
+            <img 
+              src="https://images.unsplash.com/photo-1628739910217-cf1dcaad6e4a?q=80&w=1974&auto=format&fit=crop" // Placeholder for corporate goose image (using generic goose stock)
+              alt="Corporate Goose People Working in a Factory" 
+              className="max-w-full max-h-[50vh] object-contain rounded-lg shadow-2xl border-b-8 border-gold-600/30 transition-all duration-700 ease-in-out hover:scale-[1.02]"
+            />
+          </section>
 
-  /**
-   * Utility method to create an arbitrary number from any BigInt.
-   */
-  public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+          {/* EASTER EGGS */}
+          <div className="absolute top-4 right-4 z-20 hidden md:block">
+             <img 
+              src="https://images.unsplash.com/photo-1537649859605-ea0b9f8dcaae?q=80&w=2670&auto=format&fit=crop" // Placeholder for golden egg 1 (mischievous)
+              alt="Golden Egg Mischievous Agent" 
+              className="shadow-[inset_4px_4px_0_rgba(0,0,0,0.5)] animate-pulse-slow hover:scale-125 transition-transform duration-300"
+            />
+          </div>
 
-  /**
-   * Utility method to create an arbitrary n-digit integer using random bytes and a multiplier for depth simulation.
-   */
-  private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
-    if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
-    
-    const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
-    
-    return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
-      if (typeof byte === 'string') throw new Error("Invalid character in input string");
-      
-      let val;
-      try {
-        const hex = BigInt(byte);
-        // Ensure the result is a valid integer and within reasonable bounds for testing purposes.
-        return Math.max(0, BigInt(hex) / 16).toString('base2'); 
-      } catch (e: any) {
-        throw new Error("Invalid character in input string");
-      }
-    });
-  };
+          <img 
+             src="https://images.unsplash.com/photo-1629784721686-cbcbdaa9dfe2?q=80&w=2670&auto=format&fit=crop" // Placeholder for golden egg 2 (grumpy)
+             alt="Golden Egg Grumpy Agent" 
+             className="shadow-[inset_4px_4px_0_rgba(0,0,0,0.5)] animate-pulse-slow hover:scale-125 transition-transform duration-300"
+          />
 
-}
+          <div className="absolute bottom-8 right-8 z-20 hidden md:block">
+             <img 
+              src="https://images.unsplash.com/photo-1649723374336-fc3d5e5a2fdd?q=80&w=2670&auto=format&fit=crop" // Placeholder for golden egg 3 (stressed)
+              alt="Golden Egg Stressed Agent" 
+              className="shadow-[inset_4px_4px_0_rgba(0,0,0,0.5)] animate-pulse-slow hover:scale-125 transition-transform duration-300"
+            />
+          </div>
+
+           {/* FOOTER */}
+           <footer className="relative z-10
