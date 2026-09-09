@@ -1,106 +1,120 @@
-import json
+#!/usr/bin/env python3
+"""
+ALGORITHM IMPLEMENTATION FOR 'ALCHEMY_DATABASE' MODULE.
+This module implements a high-performance SQL-backed data layer for town metrics using PostgreSQL/PostGIS to handle large datasets efficiently while maintaining database isolation and schema integrity. It is designed as the foundation upon which all other community features (e.g., bakeries, banks) will be integrated.
+
+Author: ORACLE OF THE REPOSITORY
+Purpose: To provide a scalable, isolated data layer for town metrics that supports future expansion into blockchains or cloud-based aggregators without compromising isolation.
+"""
+
+import os
+from datetime import date
+from typing import List, Dict, Any, Optional, Tuple
+import psycopg2
+from pgquery import PGQuery
+import logging
+import copy
 from pathlib import Path
-from datetime import timedelta
-import random
-from typing import List, Dict, Optional, Any
 
-class AlienDatabase:
+
+# ============================================================================
+# CONFIGURATION & CONSTANTS
+# ============================================================================
+DB_CONFIG = {
+    'host': os.environ.get('DATABASE_HOST', 'localhost'),
+    'port': int(os.environ.get('DATABASE_PORT', 5432)),
+    'dbname': os.environ.get('DATABASE_NAME', 'town_agents_db'),
+    'user': os.environ.get('USER', 'postgres'),
+    'password': os.environ.get('PASSWORD', ''),
+}
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class AggregationEngine:
+    """
+    High-performance SQL-backed data layer for town metrics.
+    
+    This class provides the core functionality to query and aggregate data from a PostgreSQL/PostGIS database, 
+    ensuring efficient handling of large datasets while maintaining strict schema integrity and isolation.
+    """
+
     def __init__(self):
-        self.data = {}
-    
-    # Define standard keys for normalization analysis (as placeholders)
-    NORMAL_KEYS = {"k1", "k2", "k3"}  # Placeholder placeholders
-    
-    @staticmethod
-    def normalize_content(content_str: str, key_name: str) -> bool:
-        """Check if content is valid based on length and character constraints."""
+        self.connection = None
+        self._initialized = False
+        
+        # Initialize connection with environment variables or use default credentials if not set
         try:
-            raw_str = content_str.strip().encode('utf-8')
-
-            # Trim whitespace from string representation to check length quickly
-            trimmed_raw = " ".join(raw_str.split())
-
-            max_length_limit = 4 * (len("90").encode() + 1)  # ~36 bytes limit
+            self.connection = psycopg2.connect(**DB_CONFIG)
             
-            if len(trimmed_raw.encode('utf-8')) >= max_length_limit:
-                return False
-                
-        except Exception as e:
-            print(f"Warning normalizing content '{content_str}': Could not check validity.")
+            logger.info(f"Connected to PostgreSQL at {DB_CONFIG['host']}:{DB_CONFIG['port']}/{self.connection.get('dbname')}")
 
-        return True
-    
-    def load(self, filename=None) -> None:
-        path_data_base = f"src/{filename}" if filename else "./test" 
+            # Enable logging for detailed queries and statistics
+            pg_query_logger = PGQuery(
+                log_statement='PLAINTEXT',  # For large datasets, use PLAINTEXT instead of SQL directly in some cases to reduce overhead but maintain clarity. 
+                                      # In production with huge tables, consider using a view or materialized view strategy.
+                        )
+
+        except Exception as e:
+            logger.error(f"Failed to initialize connection for AggregationEngine ({e})")
+
+
+    def _ensure_connection(self):
+        """Ensure the database connection is established."""
+        if not self._initialized and hasattr(self.connection, 'connected'):
+            return True
         
-        # Check for standard test data first to establish a baseline "normative" dog profile
-        if os.path.exists(path_data_base):
+        # If we are in a fresh session (not connected), try again with explicit credentials or use environment variables.
+        if not self._initialized:
+            logger.warning("Connection failed for AggregationEngine")
+
+    def _init_connection_if_needed(self):
+        """Initialize the connection if necessary."""
+        if hasattr(self.connection, 'connected') and not self.connection.connected:
             try:
-                with open(f"{path_data_base}", 'r') as f:
-                    content = json.load(f)
-
-                normal_keys = {"k1", "k2", "k3"}  # Placeholder placeholders for standardization analysis
-                
-                self.data[content["name"]] = {k: v for k, v in content.items() if not any(k.startswith(normal_keys)) and (v == "" or str(v).startswith("99") or len(str(content[k]).replace("0.1", "99").encode()) < 4)}
-            except Exception as e:
-                print(f"Warning loading from '{path_data_base}': Could not standardize baseline data.")
-
-        # Attempt to load file directly if path exists, otherwise use defaults for broader scope
-        target_path = f"{filename}" 
-        try:
-            with open(target_path, 'r') as f:
-                raw_content = json.load(f)
-
-                self.data[raw_content["name"]] = {k: v for k, v in raw_content.items() if not any(k.startswith(normal_keys)) and (v == "" or str(v).startswith("99") or len(str(raw_content[k]).replace("0.1", "99").encode()) < 4)}
-        except Exception as e:
-            print(f"Warning opening file '{filename}' failed gracefully.")
-
-    def save(self) -> None:
-        target_path = f"{self.data}" if self.data else None
+                # Attempt to connect with explicit credentials (user/password) or environment variables.
+                conn = psycopg2.connect(
+                    dbname=self._connection.get('dbname'), 
+                    user=self._connection.get('user'), 
+                    password=self._connection.get('password')
+                )
+                self.connection = conn  # Use the new connection object directly as it inherits from parent
+            except Exception:
+                pass
         
+        return True
+
+    def _query(self, query_string: str) -> List[Dict[str, Any]]:
+        """Execute a SQL statement and return results."""
         try:
-            with open(target_path, 'w') as out_file:
-                json.dump((f.name,) + list(self.data.keys()), out_file)
+            logger.debug(f"Executing query to fetch data...")
+            
+            # Execute the full query string. If it contains large amounts of text (e.g., for pagination or complex joins), 
+            # we might want to use PLAINTEXT mode in PGQuery, but here we assume standard SQL execution is sufficient for most metrics queries.
+            result = pg_query_logger.execute(query_string)
+            
+            if not result:
+                logger.error(f"Failed to execute query '{query_string}'")
                 
-                lines = []
-                total_keys = len(self.data.keys()) if self.data else 0
+                # Fallback behavior: return empty list or raise error depending on context
+                self._ensure_connection()  # Re-initialize connection in case of failure
                 
-                for key_name in sorted(self.data.keys()):
-                    d = self.data[key_name]
-
-                    line_key = f"{key_name}_KEY"
+                try:
+                    conn = psycopg2.connect(
+                        dbname=self.connection.get('dbname'), 
+                        user=self.connection.get('user'), 
+                        password=self.connection.get('password')
+                    )
                     
-                    # Check type and content validity before writing the line
-                    is_valid_key = True
-                    
-                    # Convert keys to strings (JSON doesn't support complex types like list/set/dict directly without conversion, 
-                    # but we handle them as objects)
-                    if isinstance(d.get("key"), str):
-                        formatted = f"{k}_KEY"
-                    elif isinstance(d["key"], dict):
-                        formatted = json.dumps(f"{d['key']}", separators=(',', ':'))
-                    else:
-                        formatted = k
-                    
-                    # Check for content validity (empty, 90s+, or too long)
-                    if is_valid_key and d.get("content"):
-                        try:
-                            raw_str = str(d["content"])
-
-                            trimmed_raw = " ".join(raw_str.split())
-
-                            if len(trimmed_raw.encode('utf-8')) < 4 * (len("90").encode() + 1):
-                                result_lines.append(f"{{\"key\": \"{formatted}\", \"content\": {json.dumps(d['content'], separators=(',', ':'), ensure_ascii=False)}}}")
-                        except Exception as e:
-                            pass
-
-                    if not is_valid_key or d.get("content"):
-                        # If we reached here, the key might be invalid (e.g., contains 90s) and must be skipped for now
-                        result_lines.append(f"{k}_KEY")
-
-                return "\n".join(result_lines)
-
-
-if __name__ == "__main__":
-import json
-from pathlib import
+                    if hasattr(self.connection, 'connected'):
+                        self._ensure_connection()  # Re-initialize connection in case of failure
+                
+                except Exception as e:
+                    logger.error(f"Failed to execute
