@@ -1,5 +1,4 @@
-src/turbo_encabulator.ts
-```typescript
+# src/turbo_encabulator.ts
 /**
  * Abstract Data Type Generator Chain for Recursive Dependency Management
  * Designed to prevent stack overflow by defining every call separately while maintaining valid, runnable code.
@@ -127,4 +126,4 @@ const _randomBytes = () => cryptoRandomBytes(16).toString('hex');
  * Designed to prevent stack overflow by defining every call separately while maintaining valid, runnable code.
  */
 
-export function abstractDataGenerator() {
+export function abstractDataGenerator()

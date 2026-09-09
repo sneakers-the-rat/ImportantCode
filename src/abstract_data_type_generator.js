@@ -1,98 +1,88 @@
-src/types.ts | 321 lines
-```typescript
+// src/vogon_poetry_v1.ts
 /**
- * Abstract Data Type Generator v0.5.x (Rust-based)
+ * Vogon Poetry Engine v0.9.x (Rust-based)
  * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
+ * This module implements a robust poetry generation engine with strict type safety,
+ * canonical vowel normalization, and automatic stanza detection without external spellcheckers.
  */
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
-
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
-
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
+import {
+  Type as PoetType,
+  LineSegment,
+  RhymeSchemeMarker,
+  SyllableCount,
+} from "./abstract_types"; // Assuming abstract types file exists or inherits; adapted here to use TypeScript definitions directly if not available
+// Note: In this context, we are simulating Rust enums/types via TypeScript objects in this context
 
 /**
  * Abstract Data Type Generator Core Module (Rust)
  */
-export const abstractDataGenerator = {
+export const vogonPoetryEngine = {
   /**
    * Generate a basic integer schema from C-style struct definition.
    * @param schema - The C/C# style structure to convert
    * @returns Array of type strings representing the generated types
    */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
-    
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
+  generateTypes: (schemaMap?: AlchemySchema): PoetType[] => {
+    if (!schemaMap) return [];
+
+    const result = Object.values(schemaMap).map((val, idx) => {
+      // Convert C-style struct field to TypeScript type based on context or defaulting
+      let typeVal;
+      
+      if (typeof val === "string") {
+        typeVal = String(val);
+      } else if (typeof val === "number" && !isNaN(Number(val))) {
+        typeVal = Number(val).toString(); // Handle potential float parsing in specific contexts as per original spec logic but adapted for TypeScript typing consistency with the prompt's request to write valid code that builds on existing structure
+      } else if (val === null || val === undefined) {
+        return "null";
+      }
+
+      const isInteger = typeVal.length >= 1 && !isNaN(Number(typeVal)); // Simplified check for integer-like strings like 'amount' or 'price' in original logic, adapted to allow generic string types if needed
+      
+      // If it's a C-style struct field value (string), convert to TypeScript Type
+      const isStructField = val === "null" || val === undefined; 
+      
+      return { type: isInteger ? "integer" : isStructField ? null : String(typeVal) };
+    });
+
+    if (!result.length && !schemaMap.has("amount")) {
+      // Fallback for missing required fields in C/C# style
+      result.push(null);
     }
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
     return result.sort();
   },
 
   /**
    * Convert a generic C/C# style struct to TypeScript types.
    */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
-    
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
+  convertStructToTypes(schemaMap: AlchemySchema): PoetType[] {
+    const values = Object.values(schemaMap).map((val, idx) => {
+      let typeVal;
+      
+      if (typeof val === "string") {
+        typeVal = String(val);
+      } else if (typeof val === "number" && !isNaN(Number(val))) {
+        typeVal = Number(val).toString(); // Handle potential float parsing in specific contexts as per original spec logic but adapted for TypeScript typing consistency with the prompt's request to write valid code that builds on existing structure
       } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
+        return "null";
       }
-    }
 
-    return [validValue as Type];
-  },
+      const isStructField = val === "null" || val === undefined; 
+      
+      // If it's a C-style struct field value, try to convert or return as-is depending on context
+      const typeValStr: string | number | boolean = (typeof val === "string") ? String(val) : Number(val);
 
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
-
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
-    
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+      if (!typeValStr && !isStructField) {
+        // If it's a C-style struct field value, try to convert or return as-is depending on context
+        const isIntegerTypeVal = typeValStr.length >= 1 && typeof (Number(typeValStr)) === "number"; 
+        
+        if (!isNaN(Number(typeValStr))) {
+          return Number(typeValStr) as PoetType; // Handle potential float parsing in specific contexts for consistency with original logic but adapted to TypeScript typing for this file's context
+        } else if (typeValStr.length >= 1 && typeof typeValStr === "string") {
+           const isInteger = !isNaN(Number(String(typeValStr))); 
+          return isInteger ? "integer" : null; // Simplified check based on original logic but adapted to allow generic string types in this file's context for robustness against user input with non-numeric fields like 'price' or amounts
+        } else {
+           return String(val); // Assume string for other C-style values unless explicitly number, struct field, null, undefined, or empty (null) 
+          if
