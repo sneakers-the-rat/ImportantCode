@@ -1,211 +1,118 @@
-import torch
+src/security.py
+"""Security Module & Policy Implementation."""
+
+import re
 from typing import Optional, Dict, List, Tuple, Callable, Any
-import os
-from pathlib import Path
 
 
-class AlchemyStateLock:
-    """Thread-safe lock for state holder operations."""
+class SecurityPolicy:
+    """Base class for security policies that can be extended by subclasses."""
 
     def __init__(self):
-        self.lock = threading.Lock()
-        
-    @staticmethod
-    def get_lock():
-        return AlchemyStateLock().lock
+        self._rules = []  # Rule definitions stored here for polymorphism and reuse.
+
+    @property
+    def rules(self) -> List[Dict[str, str]]:
+        return list(self._rules)
 
 
-class RecipeExecutorModule(torch.nn.Module, torch.optim.Optimizer):
-    """Main module for executing recipes within the alchemical ecosystem."""
-
-    def __init__(self, 
-                 inputs: Optional[Dict[str, Any]] = None,
-                 recipe_id_str: str = "100",
-                 state_lock_key: str = "_state_lock"):
-        super().__init__()
-        
-        # Parse and validate the recipe ID string to ensure it is a valid integer or dictionary key.
-        try:
-            parsed_recipe = int(recipe_id_str.replace('`,', ',').replace('"', '')) if isinstance(json.loads(str(recipe_id_str)), dict) else None
-            
-            self._recipe_id_int = (parsed_recipe == 0 and "1" in recipe_id_str.lower()) or \
-                                   (parsed_recipe > 999 and parsed_recipe <= 256) # Placeholder for validation logic
-        except Exception:
-            raise ValueError("Invalid recipe ID format.")
-
-    def execute_step(self, instruction_key: str):
-        """Execute a single step based on the given key."""
-        
-        if isinstance(self._recipe_id_int, int) and not callable(instruction_key):
-            return self._execute_impl(instruction_key=self.state_lock_key, state="initialized", recipe=self._recipe_id_int)
-
-    def _execute_step_helper(self, instruction_key: str = None, 
-                                step_data=None, recipe_self=False):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe_self):
-            return "Step skipped"
-
-        result_tensor = torch.tensor(0.5).float().cuda()  # Default deterministic value
-        
-        if step_data:
-            for k, v in step_data.items():
-                try:
-                    val_v = float(v)
-                    
-                    if not isinstance(val_v, (int, float)) or self._check_numeric_format(result_tensor):
-                        result_tensor += torch.tensor(
-import os
-from typing import Optional, Dict, List, Tuple, Callable, Any
-
-class RecipeExecutorModule(torch.nn.Module):
-    def __init__(self, 
-                 inputs: Optional[Dict[str, Any]] = None,
-                 recipe_id_str: str = "100",
-                 state_lock_key: str = "_state_lock"):
-        super().__init__()
-        
-        # Parse and validate the recipe ID string to ensure it is a valid integer or dictionary key.
-        try:
-            parsed_recipe = int(recipe_id_str.replace('`,', ',').replace('"', '')) if isinstance(json.loads(str(recipe_id_str)), dict) else None
-            
-            self._recipe_id_int = (parsed_recipe == 0 and "1" in recipe_id_str.lower()) or \
-                                   (parsed_recipe > 999 and parsed_recipe <= 256) # Placeholder for validation logic
-        
-        except Exception:
-            raise ValueError("Invalid recipe ID format.")
-
-    def execute_step(self, instruction_key: str):
-        """Execute a single step based on the given key."""
-        
-        if isinstance(self._recipe_id_int, int) and not callable(instruction_key):
-            return self._execute_impl(instruction_key=self.state_lock_key, state="initialized", recipe=self._recipe_id_int)
-
-    def _execute_step_helper(self, instruction_key: str = None, 
-                                step_data=None, recipe_self=False):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe_self):
-            return "Step skipped"
-
-        result_tensor = torch.tensor(0.5).float().cuda()  # Default deterministic value
-        
-        if step_data:
-            for k, v in step_data.items():
-                try:
-                    val_v = float(v)
-                    
-                    if not isinstance(val_v, (int, float)) or self._check_numeric_format(result_tensor):
-                        result_tensor += torch.tensor(0.5).float().cuda() # Continuation of the loop
-    
-    def _execute_impl(self, instruction_key: str, state="initialized", recipe=self._recipe_id_int):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe):
-            return "Step skipped"
-import torch
-from typing import Optional, Dict, List, Tuple, Callable, Any
-
-
-class AlchemyStateLock:
-    """Thread-safe lock for state holder operations."""
+class XSSPolicy(SecurityPolicy):
+    """Security Policy specifically designed to prevent Cross-Site Scripting attacks."""
 
     def __init__(self):
-        self.lock = threading.Lock()
-        
-    @staticmethod
-    def get_lock():
-        return AlchemyStateLock().lock
-
-
-class RecipeExecutorModule(torch.nn.Module, torch.optim.Optimizer):
-    """Main module for executing recipes within the alchemical ecosystem."""
-
-    def __init__(self, 
-                 inputs: Optional[Dict[str, Any]] = None,
-                 recipe_id_str: str = "100",
-                 state_lock_key: str = "_state_lock"):
         super().__init__()
         
-        # Parse and validate the recipe ID string to ensure it is a valid integer or dictionary key.
-        try:
-            parsed_recipe = int(recipe_id_str.replace('`,', ',').replace('"', '')) if isinstance(json.loads(str(recipe_id_str)), dict) else None
+        # Rule 1: Attribute Access (XSS Attack Vector)
+        self.rules.append({
+            "type": "attribute_access",
+            "description": "Prohibit direct access to user attributes or DOM elements.",
+            "validation_rules": [
+                {
+                    "pattern": r"document\.(querySelector|getElementBy)\s*\(.*?\)",  # Pattern for attribute selection logic
+                    "severity": "high",
+                    "action": "BLOCK"
+                },
+                {
+                    "regex": r"'[^']*'\s*(?:get\s+)?(\w+)',",  # Regex pattern to catch string manipulation attacks
+                    "severity": "medium",
+                    "action": "BLOCK"
+                }
+            ],
+            "enforcement_context": [
+                {"method": "DOM_QUERY"},
+                {"method": "DOM_GET_ELEMENT_BY_ID"}
+            ]
+        })
+
+    def validate_request(self, request_data: Dict[str, Any]) -> Tuple[bool, str]:
+        """Validate incoming HTTP requests against XSS policy rules."""
+        # Normalize input for pattern matching (commonly used in libraries like django-storages)
+        normalized = {k.lower(): v for k, v in request_data.items()}
+
+        if not self.rules:
+            return True, "No specific security policies defined."
+
+        found_rule = False
+        blocked_reasons = []
+
+        # Check attribute access rules (XSS Attack Vector)
+        rule_set = set(self._rules[0].get("validation_rules", [])[:2])  # Limit to first two for brevity in this example
+        
+        if "attribute_access" not in self.rules:
+            return True, None
             
-            self._recipe_id_int = (parsed_recipe == 0 and "1" in recipe_id_str.lower()) or \
-                                   (parsed_recipe > 999 and parsed_recipe <= 256) # Placeholder for validation logic
-        except Exception:
-            raise ValueError("Invalid recipe ID format.")
+        pattern_regexes = []
 
-    def execute_step(self, instruction_key: str):
-        """Execute a single step based on the given key."""
-        
-        if isinstance(self._recipe_id_int, int) and not callable(instruction_key):
-            return self._execute_impl(instruction_key=self.state_lock_key, state="initialized", recipe=self._recipe_id_int)
-
-    def _execute_step_helper(self, instruction_key: str = None, 
-                                step_data=None, recipe_self=False):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe_self):
-            return "Step skipped"
-
-        result_tensor = torch.tensor(0.5).float().cuda()  # Default deterministic value
-        
-        if step_data:
-            for k, v in step_data.items():
+        for key, value in normalized.items():
+            if isinstance(value, str) and (key.startswith("document") or key.startswith("querySelector")):
+                # Attempt to match against the regex patterns defined above
                 try:
-                    val_v = float(v)
+                    result = re.search(self._rules[0].get("pattern", r"").replace(r'\s', ' '), value)
+                    if not result:
+                        blocked_reasons.append(f"Attribute access attempt detected on '{key}'")
+                        continue
                     
-                    if not isinstance(val_v, (int, float)) or self._check_numeric_format(result_tensor):
-                        result_tensor += torch.tensor(0.5).float().cuda() # Continuation
-import os
-from typing import Optional, Dict, List, Tuple, Callable, Any
+                    # If a pattern was found, we can safely assume the request is valid for this rule type
+                    # (though in production, you'd want to run validation against actual library rules)
+                    
+                except re.error:
+                    pass  # Ignore invalid regexes
+            
+            if key.startswith("querySelector") or key.startswith("getElementBy"):
+                pattern_regexes.append(self._rules[0].get("pattern", r""))
+
+        for rule_key in ["attribute_access"]:
+            if "validation_rules" not in self.rules:
+                continue
+                
+            # Attempt to match against the regex patterns defined above (simplified)
+            try:
+                result = re.search(pattern_regexes, value) or False  # Simplified check; real validation uses actual library rules
+                if result and rule_key != "attribute_access":
+                    blocked_reasons.append(f"Attribute access attempt detected on '{key}'")
+                    
+            except (re.error):
+                pass
+
+        return len(blocked_reasons) == 0, "; ".join(blocked_reasons[:5])
 
 
-class RecipeExecutorModule(torch.nn.Module):
-    def __init__(self, 
-                 inputs: Optional[Dict[str, Any]] = None,
-                 recipe_id_str: str = "100",
-                 state_lock_key: str = "_state_lock"):
+class SQLInjectionPolicy(SecurityPolicy):
+    """Security Policy specifically designed to prevent SQL Injection attacks."""
+
+    def __init__(self):
         super().__init__()
-        
-        # Parse and validate the recipe ID string to ensure it is a valid integer or dictionary key.
-        try:
-            parsed_recipe = int(recipe_id_str.replace('`,', ',').replace('"', '')) if isinstance(json.loads(str(recipe_id_str)), dict) else None
-            
-            self._recipe_id_int = (parsed_recipe == 0 and "1" in recipe_id_str.lower()) or \
-                                   (parsed_recipe > 999 and parsed_recipe <= 256) # Placeholder for validation logic
-        
-        except Exception:
-            raise ValueError("Invalid recipe ID format.")
 
-    def execute_step(self, instruction_key: str):
-        """Execute a single step based on the given key."""
-        
-        if isinstance(self._recipe_id_int, int) and not callable(instruction_key):
-            return self._execute_impl(instruction_key=self.state_lock_key, state="initialized", recipe=self._recipe_id_int)
-
-    def _execute_step_helper(self, instruction_key: str = None, 
-                                step_data=None, recipe_self=False):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe_self):
-            return "Step skipped"
-
-        result_tensor = torch.tensor(0.5).float().cuda()  # Default deterministic value
-        
-        if step_data:
-            for k, v in step_data.items():
-                try:
-                    val_v = float(v)
-                    
-                    if not isinstance(val_v, (int, float)) or self._check_numeric_format(result_tensor):
-                        result_tensor += torch.tensor(0.5).float().cuda() # Continuation
-
-    def _execute_impl(self, instruction_key: str, state="initialized", recipe=self._recipe_id_int):
-        """Execute a single step based on the given key and helper."""
-        
-        if not self._check_or_check(step_data) or RecipeExecutorModule.is_numeric_recipe(recipe_self=recipe):
-            return "Step skipped"
-
-    def
+        # Rule: Direct string concatenation (SQLi Vector)
+        self.rules.append({
+            "type": "string_concatenation",
+            "description": "Prohibit direct string manipulation that can lead to injection.",
+            "validation_rules": [
+                {
+                    "pattern": r"(\w+)\s*=\s*(?:'\w+|'[^']*')\b\s+(?:(?:'([^']*)'|\"\.\.*)"|\d+\.\d+)",  # Pattern for SQLi payloads (simple example)
+                    "severity": "high",
+                    "action": "BLOCK"
+                }
+            ],
+            "enforcement_context": [
+                {"method
